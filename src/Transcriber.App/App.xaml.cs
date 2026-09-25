@@ -1,0 +1,30 @@
+using System.Windows;
+using System.Windows.Threading;
+using Transcriber.Core;
+using Wpf.Ui.Appearance;
+
+namespace Transcriber.App;
+
+public partial class App : Application
+{
+    protected override void OnStartup(StartupEventArgs e)
+    {
+        base.OnStartup(e);
+        ApplicationThemeManager.ApplySystemTheme();
+    }
+
+    private void OnUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        try
+        {
+            Directory.CreateDirectory(AppPaths.Local);
+            File.AppendAllText(Path.Combine(AppPaths.Local, "error.log"), $"[{DateTime.Now:O}] {e.Exception}\n\n");
+        }
+        catch (IOException)
+        {
+        }
+
+        MessageBox.Show(e.Exception.Message, "Transcriber", MessageBoxButton.OK, MessageBoxImage.Error);
+        e.Handled = true;
+    }
+}

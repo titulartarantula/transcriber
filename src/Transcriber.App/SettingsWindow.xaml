@@ -1,0 +1,204 @@
+<ui:FluentWindow
+    x:Class="Transcriber.App.SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Title="Settings"
+    Width="640" Height="760" MinWidth="520" MinHeight="480"
+    WindowStartupLocation="CenterOwner"
+    ExtendsContentIntoTitleBar="True"
+    WindowBackdropType="Mica"
+    WindowCornerPreference="Round"
+    ShowInTaskbar="False">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Settings" ShowMinimize="False" ShowMaximize="False" />
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="24,0,24,12">
+            <StackPanel>
+
+                <!-- Speech to text -->
+                <TextBlock Style="{StaticResource SectionHeader}" Text="SPEECH TO TEXT" Margin="2,8,0,8" />
+                <ui:Card Padding="16" Margin="0,0,0,20">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="Any OpenAI-compatible transcription server: faster-whisper-server, Speaches, LocalAI, or OpenAI itself." />
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Server URL" />
+                        <ui:TextBox x:Name="SttUrl" PlaceholderText="http://192.168.1.100:8000" />
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="API key (leave blank if your server has none)" />
+                        <ui:PasswordBox x:Name="SttKey" PlaceholderText="Optional" />
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Model" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="SttModel" IsEditable="True" />
+                            <ui:Button Grid.Column="1" Margin="8,0,0,0" Content="Test and load models" Click="OnTestStt" />
+                        </Grid>
+                        <TextBlock x:Name="SttResult" Style="{StaticResource Hint}" Margin="0,6,0,0" Visibility="Collapsed" />
+                        <Grid Margin="0,0,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Language" />
+                                <ui:TextBox x:Name="SttLanguage" PlaceholderText="Auto (e.g. en)" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Vocabulary hint" />
+                                <ui:TextBox x:Name="SttPrompt" PlaceholderText="Names and jargon, e.g. Priya, Kubernetes, OKRs" />
+                            </StackPanel>
+                        </Grid>
+                        <ui:ToggleSwitch x:Name="SttVad" Margin="0,14,0,0"
+                                         Content="Skip silence before transcribing (reduces made-up text in quiet stretches)" />
+                    </StackPanel>
+                </ui:Card>
+
+                <!-- Speakers -->
+                <TextBlock Style="{StaticResource SectionHeader}" Text="SPEAKERS" />
+                <ui:Card Padding="16" Margin="0,0,0,20">
+                    <StackPanel>
+                        <ui:ToggleSwitch x:Name="Diarize" Content="Split voices on sources that have &quot;Split voices&quot; on" />
+                        <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0"
+                                   Text="Runs locally on this PC. About 32 MB of models are downloaded the first time." />
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="When the number of voices is Auto" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Find more voices" Style="{StaticResource Hint}" VerticalAlignment="Center" />
+                            <Slider x:Name="Threshold" Grid.Column="1" Margin="12,0" Minimum="0.5" Maximum="1.3"
+                                    TickFrequency="0.05" IsSnapToTickEnabled="True" />
+                            <TextBlock Grid.Column="2" Text="Merge similar voices" Style="{StaticResource Hint}" VerticalAlignment="Center" />
+                        </Grid>
+                        <ui:ToggleSwitch x:Name="ReviewNames" Margin="0,14,0,0"
+                                         Content="Let me name speakers before the note is saved" />
+                        <ui:ToggleSwitch x:Name="SuppressEcho" Margin="0,10,0,0"
+                                         Content="Remove mic lines that are just the call audio leaking from speakers" />
+                    </StackPanel>
+                </ui:Card>
+
+                <!-- Output -->
+                <TextBlock Style="{StaticResource SectionHeader}" Text="OUTPUT" />
+                <ui:Card Padding="16" Margin="0,0,0,8">
+                    <StackPanel>
+                        <RadioButton x:Name="ToFolder" GroupName="Dest" Content="Markdown file in a folder" Checked="OnDestinationChanged" />
+                        <RadioButton x:Name="ToMcp" GroupName="Dest" Margin="0,6,0,0" Content="Obsidian through an MCP server (works from anywhere)"
+                                     Checked="OnDestinationChanged" />
+                        <RadioButton x:Name="ToObsidian" GroupName="Dest" Margin="0,6,0,0" Content="Obsidian Local REST API plugin (this PC, LAN or WireGuard)"
+                                     Checked="OnDestinationChanged" />
+
+                        <StackPanel x:Name="FolderPanel">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Folder" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <ui:TextBox x:Name="Folder" />
+                                <ui:Button Grid.Column="1" Margin="8,0,0,0" Content="Browse…" Click="OnBrowse" />
+                            </Grid>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0"
+                                       Text="Point this at a folder inside your vault to use Obsidian without the plugin." />
+                        </StackPanel>
+
+                        <StackPanel x:Name="McpPanel">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="MCP server URL" />
+                            <ui:TextBox x:Name="McpUrl" PlaceholderText="https://obsidian-mcp.example.com/mcp" />
+                            <Grid Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <ui:SymbolIcon x:Name="McpStatusIcon" Symbol="PersonCircle24" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                <TextBlock x:Name="McpStatus" Grid.Column="1" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                    <ui:Button x:Name="McpSignIn" Content="Sign in" Appearance="Primary" Click="OnMcpSignIn" />
+                                    <ui:Button x:Name="McpSignOut" Content="Sign out" Margin="8,0,0,0" Click="OnMcpSignOut" />
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0"
+                                       Text="Signing in opens your browser once. The app then keeps a refresh token, encrypted for your Windows account." />
+                        </StackPanel>
+
+                        <StackPanel x:Name="ObsidianPanel">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="REST API URL" />
+                            <ui:TextBox x:Name="ObsidianUrl" PlaceholderText="https://127.0.0.1:27124" />
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="API key" />
+                            <ui:PasswordBox x:Name="ObsidianKey" PlaceholderText="From Obsidian → Settings → Local REST API" />
+                            <Grid x:Name="PinPanel" Margin="0,8,0,0" Visibility="Collapsed">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <ui:SymbolIcon Symbol="LockClosed16" Margin="0,0,6,0" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                                <TextBlock x:Name="PinText" Grid.Column="1" Style="{StaticResource Hint}" VerticalAlignment="Center"
+                                           FontFamily="Cascadia Mono, Consolas" />
+                                <ui:Button Grid.Column="2" Content="Forget" Appearance="Transparent" Padding="8,2" Margin="6,0,0,0"
+                                           Click="OnForgetCertificate" />
+                            </Grid>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0"
+                                       Text="From another PC, use the Obsidian PC's LAN or WireGuard address, e.g. https://192.168.1.100:27124. The plugin's self-signed certificate is trusted by its fingerprint the first time you test." />
+                        </StackPanel>
+
+                        <StackPanel x:Name="VaultPanel">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Folder in vault" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <ui:TextBox x:Name="ObsidianFolder" PlaceholderText="Transcripts" />
+                                <ui:Button Grid.Column="1" Margin="8,0,0,0" Content="Test connection" Click="OnTestObsidian" />
+                            </Grid>
+                            <TextBlock x:Name="ObsidianResult" Style="{StaticResource Hint}" Margin="0,6,0,0" Visibility="Collapsed" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0"
+                                       Text="If the vault can't be reached, notes are kept in %LOCALAPPDATA%\Transcriber\unsent." />
+                        </StackPanel>
+
+                        <Separator Margin="0,16,0,4" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="File name" />
+                                <ui:TextBox x:Name="FileNameTemplate" PlaceholderText="{}{date} {time} {title}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Tags" />
+                                <ui:TextBox x:Name="Tags" PlaceholderText="transcript, meeting" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" Text="File name tokens: {date} {time} {title}" />
+                        <ui:ToggleSwitch x:Name="LinkSpeakers" Margin="0,14,0,0"
+                                         Content="Write speakers as [[links]] to people notes" />
+                    </StackPanel>
+                </ui:Card>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" Padding="24,14" BorderThickness="0,1,0,0"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                Background="{DynamicResource LayerFillColorDefaultBrush}">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <ui:Button Content="Cancel" MinWidth="96" Margin="0,0,8,0" IsCancel="True" />
+                <ui:Button Content="Save" MinWidth="96" Appearance="Primary" IsDefault="True" Click="OnSave" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>
