@@ -15,6 +15,8 @@ its release and uses them as the GitHub release notes.
 
 ### Android
 
+## Android 0.2.0 - 2026-09-26
+
 - Release builds are signed with a dedicated release key. Uninstall 0.1.x once before installing this
   version; later updates install over it normally.
 - Notes record which app and version made them (`app:` in the frontmatter).
