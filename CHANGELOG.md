@@ -8,12 +8,14 @@ its release and uses them as the GitHub release notes.
 
 ### Windows
 
+### Android
+
+## Windows 0.1.1 - 2026-09-26
+
 - Recordings are read without Media Foundation, and finished recordings are no longer left locked, which
   could stop them being cleaned up after a note was saved.
 - Notes record which app and version made them (`app:` in the frontmatter).
 - Settings shows the version and the commit it was built from.
-
-### Android
 
 ## Android 0.2.0 - 2026-09-26
 
