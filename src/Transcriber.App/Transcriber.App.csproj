@@ -10,7 +10,7 @@
     <RootNamespace>Transcriber.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
-    <Version>0.1.0</Version>
+    <Version>$(WindowsVersion)</Version>
   </PropertyGroup>
 
   <ItemGroup>

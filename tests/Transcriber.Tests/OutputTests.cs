@@ -83,3 +83,24 @@ public class TimeOfDayTests
         Assert.Equal("00:00:10", Transcriber.Core.Output.MarkdownRenderer.TimeOfDay(start, 40));
     }
 }
+
+public class BuildInfoTests
+{
+    [Theory]
+    [InlineData("0.2.0+9a7c27bdeadbeef", "0.2.0", "9a7c27b")]
+    [InlineData("1.4.2", "1.4.2", null)]
+    [InlineData("0.1.0+", "0.1.0", null)]
+    public void Parses_informational_version(string info, string version, string? commit)
+    {
+        var build = Transcriber.Core.BuildInfo.Parse(info);
+        Assert.Equal(version, build.Version);
+        Assert.Equal(commit, build.Commit);
+    }
+
+    [Fact]
+    public void Note_records_the_app_that_made_it()
+    {
+        var note = new NoteData("t", DateTimeOffset.Now, TimeSpan.Zero, [], [], "m", null, [], false) { App = "Transcriber for Android 0.2.0" };
+        Assert.Contains("app: \"Transcriber for Android 0.2.0\"", MarkdownRenderer.Render(note));
+    }
+}

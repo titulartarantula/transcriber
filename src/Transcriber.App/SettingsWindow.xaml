@@ -195,10 +195,13 @@
         <Border Grid.Row="2" Padding="24,14" BorderThickness="0,1,0,0"
                 BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                 Background="{DynamicResource LayerFillColorDefaultBrush}">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <ui:Button Content="Cancel" MinWidth="96" Margin="0,0,8,0" IsCancel="True" />
-                <ui:Button Content="Save" MinWidth="96" Appearance="Primary" IsDefault="True" Click="OnSave" />
-            </StackPanel>
+            <Grid>
+                <TextBlock x:Name="VersionText" Style="{StaticResource Hint}" VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <ui:Button Content="Cancel" MinWidth="96" Margin="0,0,8,0" IsCancel="True" />
+                    <ui:Button Content="Save" MinWidth="96" Appearance="Primary" IsDefault="True" Click="OnSave" />
+                </StackPanel>
+            </Grid>
         </Border>
     </Grid>
 </ui:FluentWindow>

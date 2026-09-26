@@ -80,7 +80,10 @@ public sealed class TranscriptionPipeline(AppSettings settings, SpeakerReview? r
             settings.Stt.Model,
             language,
             ParseTags(settings.Output.Tags),
-            settings.Output.LinkSpeakers);
+            settings.Output.LinkSpeakers)
+        {
+            App = ProductInfo.Client,
+        };
 
         var markdown = MarkdownRenderer.Render(note);
         var fileName = FileNames.Build(settings.Output.FileNameTemplate, title, recording.StartedAt);

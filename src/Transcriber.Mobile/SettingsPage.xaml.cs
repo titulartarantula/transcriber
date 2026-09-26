@@ -1,3 +1,4 @@
+using Transcriber.Core;
 using Transcriber.Core.Output;
 using Transcriber.Core.Output.Mcp;
 using Transcriber.Core.Settings;
@@ -13,6 +14,9 @@ public partial class SettingsPage : ContentPage
     public SettingsPage()
     {
         InitializeComponent();
+        var build = BuildInfo.From(typeof(SettingsPage).Assembly);
+        VersionLabel.Text = $"Transcriber for Android {build.Version} · build {AppInfo.Current.BuildString}"
+            + (build.Commit is null ? "" : $" · {build.Commit}");
         var s = _settings;
         SttUrl.Text = s.Stt.BaseUrl;
         SttKey.Text = s.Stt.ApiKey;

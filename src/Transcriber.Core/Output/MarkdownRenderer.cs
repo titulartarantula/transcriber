@@ -15,7 +15,11 @@ public sealed record NoteData(
     string Model,
     string? Language,
     IReadOnlyList<string> Tags,
-    bool LinkSpeakers);
+    bool LinkSpeakers)
+{
+    /// <summary>The app and version that made the note, e.g. "Transcriber for Android 0.2.0".</summary>
+    public string? App { get; init; }
+}
 
 public static class MarkdownRenderer
 {
@@ -31,6 +35,7 @@ public static class MarkdownRenderer
         sb.AppendLine($"end: {Yaml(TimeOfDay(note.StartedAt, note.Duration.TotalSeconds))}");
         sb.AppendLine($"duration: {Yaml(Clock(note.Duration))}");
         sb.AppendLine("type: transcript");
+        if (!string.IsNullOrEmpty(note.App)) sb.AppendLine($"app: {Yaml(note.App)}");
         AppendList(sb, "speakers", speakers.Select(s => note.LinkSpeakers ? $"[[{s}]]" : s));
         AppendList(sb, "sources", note.Sources.Select(s => $"{s.Label} ({s.DeviceName})"));
         sb.AppendLine($"stt_model: {Yaml(note.Model)}");

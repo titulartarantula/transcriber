@@ -11,6 +11,7 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        ProductInfo.Client = $"Transcriber for Windows {BuildInfo.From(typeof(App).Assembly).Version}";
         // Media Foundation decodes mp3, m4a and the like for "Transcribe a file…".
         AudioConvert.ExternalDecoder = path => new NAudio.Wave.AudioFileReader(path);
         ApplicationThemeManager.ApplySystemTheme();

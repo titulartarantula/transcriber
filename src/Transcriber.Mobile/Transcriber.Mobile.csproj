@@ -12,8 +12,10 @@
 
 		<ApplicationTitle>Transcriber</ApplicationTitle>
 		<ApplicationId>dev.transcriber.app</ApplicationId>
-		<ApplicationDisplayVersion>0.1.1</ApplicationDisplayVersion>
-		<ApplicationVersion>2</ApplicationVersion>
+		<!-- Version comes from Versions.props; versionCode = MAJOR*10000 + MINOR*100 + PATCH so it always increases. -->
+		<Version>$(AndroidVersion)</Version>
+		<ApplicationDisplayVersion>$(AndroidVersion)</ApplicationDisplayVersion>
+		<ApplicationVersion>$([MSBuild]::Add($([MSBuild]::Add($([MSBuild]::Multiply($([System.Version]::Parse('$(AndroidVersion)').Major), 10000)), $([MSBuild]::Multiply($([System.Version]::Parse('$(AndroidVersion)').Minor), 100)))), $([System.Version]::Parse('$(AndroidVersion)').Build)))</ApplicationVersion>
 
 		<!-- Android 10: foreground-service types and preferred input devices behave consistently from here. -->
 		<SupportedOSPlatformVersion>29.0</SupportedOSPlatformVersion>

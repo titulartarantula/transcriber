@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using Microsoft.Win32;
+using Transcriber.Core;
 using Transcriber.Core.Output;
 using Transcriber.Core.Output.Mcp;
 using Transcriber.Core.Settings;
@@ -15,6 +16,7 @@ public partial class SettingsWindow : FluentWindow
     {
         InitializeComponent();
         Result = settings;
+        VersionText.Text = $"Transcriber for Windows {BuildInfo.From(typeof(SettingsWindow).Assembly)}";
 
         SttUrl.Text = settings.Stt.BaseUrl;
         SttKey.Password = settings.Stt.ApiKey;

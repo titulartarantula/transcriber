@@ -1,0 +1,10 @@
+<Project>
+  <!--
+    Release versions, one per app (MAJOR.MINOR.PATCH). scripts/release.ps1 bumps these; edit by hand
+    only if you know why. Android's versionCode is derived: MAJOR*10000 + MINOR*100 + PATCH.
+  -->
+  <PropertyGroup>
+    <WindowsVersion>0.1.0</WindowsVersion>
+    <AndroidVersion>0.1.1</AndroidVersion>
+  </PropertyGroup>
+</Project>

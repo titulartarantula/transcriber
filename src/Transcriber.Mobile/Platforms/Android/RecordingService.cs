@@ -83,7 +83,11 @@ public sealed class RecordingService : Service
         _running = this;
         EnsureChannels((NotificationManager)GetSystemService(NotificationService)!);
         var notification = Build(intent?.GetStringExtra(TextExtra) ?? "Recording", intent?.GetBooleanExtra(RecordingExtra, false) ?? false);
-        StartForeground(NotificationId, notification, ForegroundService.TypeMicrophone);
+        // The microphone type exists from Android 11, which is also when background mic use became restricted.
+        if (OperatingSystem.IsAndroidVersionAtLeast(30))
+            StartForeground(NotificationId, notification, ForegroundService.TypeMicrophone);
+        else
+            StartForeground(NotificationId, notification);
 
         if (_wakeLock is null)
         {

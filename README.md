@@ -117,8 +117,9 @@ library: the same Whisper client, on-device speaker separation, naming, Markdown
   folder Obsidian mobile or Syncthing uses.
 - API keys and sign-in tokens are encrypted with a key held in the Android Keystore.
 
-Install `publish/Transcriber-<version>.apk` by opening it on the phone (allow installs from that source when
-asked). It is signed with this PC's debug key, so later builds from the same PC install as updates.
+Install the APK attached to an `android-v*` GitHub release by opening it on the phone (allow installs from
+that source when asked). Release APKs are signed with the release key described under
+[Versions and releases](#versions-and-releases).
 
 Build (needs the .NET 10 SDK with the `maui-android` workload, the Android SDK and a JDK):
 
@@ -129,6 +130,37 @@ dotnet publish src/Transcriber.Mobile -c Release -f net10.0-android `
 ```
 
 Add `-p:PhoneOnly=true` for a smaller phone-only (arm64) APK without the emulator libraries.
+
+## Versions and releases
+
+Windows and Android have separate versions, kept in `Versions.props` and tagged `windows-vX.Y.Z` and
+`android-vX.Y.Z`. Both apps show their version and build commit in Settings, and every note records the
+app and version that made it (`app:` in the frontmatter). Android's versionCode is derived from the
+version (0.2.0 → 200), so updates always install over older builds.
+
+As you make changes, add a line under **Unreleased** in `CHANGELOG.md`, in the Windows or Android
+subsection. To release:
+
+```powershell
+./scripts/release.ps1 android              # 0.2.0 → 0.2.1
+./scripts/release.ps1 windows -Bump minor  # 0.1.1 → 0.2.0
+./scripts/release.ps1 android -DryRun      # build only; changes nothing
+```
+
+The script checks the repository is clean and up to date on `main`, runs the tests, bumps the version,
+moves the changelog entries into a dated section and commits. It then builds the self-contained exe or
+the signed APK, checks the version (and for Android the signing key) inside it, tags, pushes and creates a
+GitHub release with the file attached and the changelog entries as notes. If the build fails, the release
+commit is undone and nothing is pushed.
+
+### Android signing key
+
+Release APKs are signed with a dedicated key so updates install from any PC. It lives outside the repo in
+`%APPDATA%\TranscriberSigning`, with its password encrypted for your Windows account. Back up the
+`transcriber-release.keystore` file and its password together (`./scripts/new-signing-key.ps1 -ShowPassword`).
+Without both, future APKs can't update the installed app. The only fix then is to uninstall it and lose
+its settings. On a new PC, copy the keystore into that folder and run
+`./scripts/new-signing-key.ps1 -ImportPassword` to save the password there.
 
 ## Building
 
