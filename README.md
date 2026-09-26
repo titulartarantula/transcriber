@@ -100,6 +100,36 @@ The first time voices are split, about 32 MB of models are downloaded to `%LOCAL
 Recordings are deleted once the note is saved. If transcription fails, the audio is kept and **Retry**
 sends it again.
 
+## Android app
+
+`src/Transcriber.Mobile` is an Android version (.NET 10 MAUI, Android 10 and later) that shares the core
+library: the same Whisper client, on-device speaker separation, naming, Markdown and Obsidian outputs.
+
+- **Microphone:** choose the phone's own mic or a connected Bluetooth, wired or USB headset. Bluetooth
+  headsets are switched to their call (hands-free) mic while recording; they appear in the list once
+  connected for calls, not just media.
+- **Speakers:** one mic in a room usually hears several people, so **Split voices** is on by default and
+  the naming screen appears before saving.
+- **Background recording:** a notification keeps recording and transcription running with the screen off
+  or while you use other apps.
+- **Outputs:** Obsidian through an MCP server, the Local REST API over LAN/WireGuard (with the same
+  certificate pinning), or a folder on the phone picked with Android's folder picker, for example the vault
+  folder Obsidian mobile or Syncthing uses.
+- API keys and sign-in tokens are encrypted with a key held in the Android Keystore.
+
+Install `publish/Transcriber-<version>.apk` by opening it on the phone (allow installs from that source when
+asked). It is signed with this PC's debug key, so later builds from the same PC install as updates.
+
+Build (needs the .NET 10 SDK with the `maui-android` workload, the Android SDK and a JDK):
+
+```powershell
+dotnet publish src/Transcriber.Mobile -c Release -f net10.0-android `
+  -p:AndroidSdkDirectory="C:\Program Files (x86)\Android\android-sdk" `
+  -p:JavaSdkDirectory="C:\Program Files\Android\openjdk\jdk-21.0.8" -o publish/android
+```
+
+Add `-p:PhoneOnly=true` for a smaller phone-only (arm64) APK without the emulator libraries.
+
 ## Building
 
 Requires the .NET 8 SDK.
@@ -124,8 +154,10 @@ dotnet test
 ## Layout
 
 ```
-src/Transcriber.Core   audio capture, STT client, diarization, transcript merging, Markdown, destinations
-src/Transcriber.App    WPF UI (WPF-UI Fluent controls)
+src/Transcriber.Core           portable: STT client, diarization, transcript merging, Markdown, destinations
+src/Transcriber.Audio.Windows  WASAPI microphone and loopback capture
+src/Transcriber.App            Windows UI (WPF, WPF-UI Fluent controls)
+src/Transcriber.Mobile         Android app (.NET MAUI)
 tests/Transcriber.Tests
 ```
 

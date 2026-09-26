@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Transcriber.Mobile.MainPage"
+             Title="Transcriber">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Settings" Clicked="OnSettings" />
+    </ContentPage.ToolbarItems>
+
+    <Grid RowDefinitions="*,Auto">
+        <ScrollView Grid.Row="0">
+            <VerticalStackLayout Padding="20,8,20,20" Spacing="0">
+
+                <Entry x:Name="TitleEntry" Placeholder="Title for this recording (optional)" Margin="0,4,0,0" />
+
+                <Label Style="{StaticResource Section}" Text="MICROPHONE" />
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="2">
+                        <VerticalStackLayout x:Name="MicList" />
+                        <Label x:Name="MicHint" Style="{StaticResource Hint}" Margin="4,6,0,2"
+                               Text="Bluetooth headsets show up here once they're connected for calls." />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Style="{StaticResource Section}" Text="SPEAKERS" />
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="4">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout VerticalOptions="Center">
+                                <Label Text="Split voices" />
+                                <Label Style="{StaticResource Hint}" Text="Detect each person in the room and label them separately" />
+                            </VerticalStackLayout>
+                            <Switch x:Name="SplitSwitch" Grid.Column="1" VerticalOptions="Center" Toggled="OnSplitToggled" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,120" ColumnSpacing="12" Margin="0,8,0,0">
+                            <VerticalStackLayout VerticalOptions="Center">
+                                <Label Text="Number of voices" />
+                                <Label Style="{StaticResource Hint}" Text="Set it if you know it; Auto estimates" />
+                            </VerticalStackLayout>
+                            <Picker x:Name="VoicesPicker" Grid.Column="1" SelectedIndexChanged="OnVoicesChanged" />
+                        </Grid>
+                        <Label Style="{StaticResource FieldLabel}" Text="Label" />
+                        <Entry x:Name="LabelEntry" Placeholder="Speaker" />
+                        <Label Style="{StaticResource Hint}" x:Name="LabelHint" Text="Voices become Speaker 1, Speaker 2, … and you can name them before saving." />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border x:Name="StatusCard" Style="{StaticResource Card}" Margin="0,18,0,0" IsVisible="False">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <ActivityIndicator x:Name="Busy" IsRunning="False" IsVisible="False" WidthRequest="22" HeightRequest="22" VerticalOptions="Start" />
+                        <Label x:Name="StatusIcon" FontSize="18" VerticalOptions="Start" />
+                        <VerticalStackLayout Grid.Column="1" Spacing="4">
+                            <Label x:Name="StatusText" />
+                            <Label x:Name="StatusDetail" Style="{StaticResource Hint}" IsVisible="False" />
+                            <Button x:Name="RetryButton" Text="Retry" HorizontalOptions="Start" Margin="0,6,0,0"
+                                    IsVisible="False" Clicked="OnRetry" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- Recording controls stay at the bottom, within thumb reach. -->
+        <Border Grid.Row="1" StrokeThickness="0" Padding="20,12,20,20"
+                BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray950}}">
+            <VerticalStackLayout Spacing="10">
+                <Grid ColumnDefinitions="*,Auto">
+                    <Label x:Name="TimerLabel" Text="00:00:00" FontSize="28" FontFamily="OpenSansSemibold" VerticalOptions="Center" />
+                    <Button x:Name="CancelButton" Grid.Column="1" Text="Cancel" IsVisible="False" Clicked="OnCancel" />
+                </Grid>
+                <ProgressBar x:Name="LevelBar" Progress="0" IsVisible="False" />
+                <Button x:Name="RecordButton" Text="Start recording" HeightRequest="56" FontSize="17"
+                        CornerRadius="28" Clicked="OnRecord" />
+            </VerticalStackLayout>
+        </Border>
+    </Grid>
+</ContentPage>

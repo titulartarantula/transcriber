@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Transcriber.Mobile.SettingsPage"
+             Title="Settings">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Save" Clicked="OnSave" />
+    </ContentPage.ToolbarItems>
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20,0,20,32">
+
+            <!-- Speech to text -->
+            <Label Style="{StaticResource Section}" Text="SPEECH TO TEXT" />
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout>
+                    <Label Style="{StaticResource Hint}" Text="Any OpenAI-compatible transcription server: faster-whisper-server, Speaches, LocalAI or OpenAI." />
+                    <Label Style="{StaticResource FieldLabel}" Text="Server URL" />
+                    <Entry x:Name="SttUrl" Placeholder="http://192.168.1.100:8000" Keyboard="Url" />
+                    <Label Style="{StaticResource FieldLabel}" Text="API key (blank if none)" />
+                    <Entry x:Name="SttKey" IsPassword="True" Placeholder="Optional" />
+                    <Label Style="{StaticResource FieldLabel}" Text="Model" />
+                    <Entry x:Name="SttModel" />
+                    <Button Text="Test and choose model" Margin="0,10,0,0" Clicked="OnTestStt" />
+                    <Label x:Name="SttResult" Style="{StaticResource Hint}" Margin="0,6,0,0" IsVisible="False" />
+                    <Grid ColumnDefinitions="110,*" ColumnSpacing="12">
+                        <VerticalStackLayout>
+                            <Label Style="{StaticResource FieldLabel}" Text="Language" />
+                            <Entry x:Name="SttLanguage" Placeholder="Auto" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="1">
+                            <Label Style="{StaticResource FieldLabel}" Text="Vocabulary hint" />
+                            <Entry x:Name="SttPrompt" Placeholder="Names, jargon" />
+                        </VerticalStackLayout>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
+                        <Label Text="Skip silence before transcribing" VerticalOptions="Center" />
+                        <Switch x:Name="SttVad" Grid.Column="1" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Background -->
+            <Label Style="{StaticResource Section}" Text="BACKGROUND" />
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout>
+                    <Label x:Name="BatteryStatus" />
+                    <Label Style="{StaticResource Hint}" Margin="0,4,0,0"
+                           Text="Recording keeps going with the screen off or in other apps. Some phones (Samsung, Xiaomi, OnePlus…) still stop background apps unless battery optimization is off for Transcriber." />
+                    <Button x:Name="BatteryButton" Text="Allow running in background" Margin="0,10,0,0" Clicked="OnBattery" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Speakers -->
+            <Label Style="{StaticResource Section}" Text="SPEAKERS" />
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout>
+                    <Label Text="When the number of voices is Auto" />
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,6,0,0">
+                        <Label Style="{StaticResource Hint}" Text="More voices" VerticalOptions="Center" />
+                        <Slider x:Name="Threshold" Grid.Column="1" Minimum="0.5" Maximum="1.3" />
+                        <Label Style="{StaticResource Hint}" Grid.Column="2" Text="Fewer" VerticalOptions="Center" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
+                        <Label Text="Name speakers before saving" VerticalOptions="Center" />
+                        <Switch x:Name="ReviewNames" Grid.Column="1" />
+                    </Grid>
+                    <Label Style="{StaticResource Hint}" Margin="0,8,0,0"
+                           Text="Voice separation runs on the phone. About 32 MB of models download the first time." />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Output -->
+            <Label Style="{StaticResource Section}" Text="OUTPUT" />
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout>
+                    <RadioButton x:Name="ToMcp" GroupName="dest" Content="Obsidian through an MCP server" CheckedChanged="OnDestinationChanged" />
+                    <RadioButton x:Name="ToRest" GroupName="dest" Content="Obsidian Local REST API (LAN or WireGuard)" CheckedChanged="OnDestinationChanged" />
+                    <RadioButton x:Name="ToFolder" GroupName="dest" Content="Folder on this phone" CheckedChanged="OnDestinationChanged" />
+
+                    <VerticalStackLayout x:Name="McpPanel">
+                        <Label Style="{StaticResource FieldLabel}" Text="MCP server URL" />
+                        <Entry x:Name="McpUrl" Placeholder="https://obsidian-mcp.example.com/mcp" Keyboard="Url" TextChanged="OnMcpUrlChanged" />
+                        <Label x:Name="McpStatus" Margin="0,10,0,0" />
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,8,0,0">
+                            <Button x:Name="McpSignIn" Text="Sign in" Clicked="OnMcpSignIn" />
+                            <Button x:Name="McpSignOut" Grid.Column="1" Text="Sign out" Clicked="OnMcpSignOut" />
+                        </Grid>
+                        <Label Style="{StaticResource Hint}" Margin="0,6,0,0"
+                               Text="Sign-in opens your browser once. When it says you're signed in, come back to Transcriber." />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout x:Name="RestPanel">
+                        <Label Style="{StaticResource FieldLabel}" Text="REST API URL" />
+                        <Entry x:Name="RestUrl" Placeholder="https://192.168.1.100:27124" Keyboard="Url" />
+                        <Label Style="{StaticResource FieldLabel}" Text="API key" />
+                        <Entry x:Name="RestKey" IsPassword="True" Placeholder="From the Local REST API plugin settings" />
+                        <Grid x:Name="PinRow" ColumnDefinitions="*,Auto" Margin="0,8,0,0" IsVisible="False">
+                            <Label x:Name="PinText" Style="{StaticResource Hint}" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="Forget" Clicked="OnForgetCertificate" />
+                        </Grid>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout x:Name="VaultPanel">
+                        <Label Style="{StaticResource FieldLabel}" Text="Folder in vault" />
+                        <Entry x:Name="VaultFolder" Placeholder="Transcripts" />
+                        <Button Text="Test connection" Margin="0,10,0,0" Clicked="OnTestVault" />
+                        <Label x:Name="VaultResult" Style="{StaticResource Hint}" Margin="0,6,0,0" IsVisible="False" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout x:Name="FolderPanel">
+                        <Label x:Name="FolderLabel" Margin="0,10,0,0" />
+                        <Button Text="Choose folder…" Margin="0,8,0,0" Clicked="OnPickFolder" />
+                        <Label Style="{StaticResource Hint}" Margin="0,6,0,0"
+                               Text="Pick the vault folder that Obsidian mobile or Syncthing uses, and notes land straight in it." />
+                    </VerticalStackLayout>
+
+                    <BoxView HeightRequest="1" Margin="0,16,0,4" Color="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}" />
+                    <Label Style="{StaticResource FieldLabel}" Text="File name" />
+                    <Entry x:Name="FileNameTemplate" Placeholder="{}{date} {time} {title}" />
+                    <Label Style="{StaticResource Hint}" Text="Tokens: {date} {time} {title}" />
+                    <Label Style="{StaticResource FieldLabel}" Text="Tags" />
+                    <Entry x:Name="Tags" Placeholder="transcript, meeting" />
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
+                        <Label Text="Write speakers as [[links]]" VerticalOptions="Center" />
+                        <Switch x:Name="LinkSpeakers" Grid.Column="1" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

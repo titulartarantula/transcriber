@@ -1,17 +1,10 @@
 using System.Diagnostics;
+using Transcriber.Core;
+using Transcriber.Core.Audio;
 
-namespace Transcriber.Core.Audio;
+namespace Transcriber.Audio.Windows;
 
 public sealed record SourceSelection(AudioDeviceInfo Device, string Label, bool Diarize);
-
-public sealed record RecordedSource(string FilePath, string Label, SourceKind Kind, bool Diarize, string DeviceName);
-
-public sealed record SessionRecording(
-    string Title,
-    DateTimeOffset StartedAt,
-    TimeSpan Duration,
-    string Directory,
-    IReadOnlyList<RecordedSource> Sources);
 
 /// <summary>Records several endpoints at once, one WAV per endpoint, all on the same timeline.</summary>
 public sealed class RecordingSession : IDisposable

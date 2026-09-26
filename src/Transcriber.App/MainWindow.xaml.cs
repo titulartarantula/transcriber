@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
+using Transcriber.Audio.Windows;
 using Transcriber.Core.Audio;
 using Transcriber.Core.Output;
 using Transcriber.Core.Pipeline;

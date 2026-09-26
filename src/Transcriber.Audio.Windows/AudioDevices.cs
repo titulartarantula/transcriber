@@ -1,19 +1,9 @@
 using System.Runtime.InteropServices;
 using NAudio.CoreAudioApi;
 
-namespace Transcriber.Core.Audio;
+using Transcriber.Core.Audio;
 
-public enum SourceKind
-{
-    /// <summary>A capture endpoint: microphone, headset, line-in.</summary>
-    Microphone,
-
-    /// <summary>A render endpoint recorded through WASAPI loopback: whatever plays on that output.</summary>
-    SystemAudio,
-
-    /// <summary>An existing audio file handed to the pipeline.</summary>
-    File,
-}
+namespace Transcriber.Audio.Windows;
 
 public sealed record AudioDeviceInfo(string Id, string Name, SourceKind Kind, bool IsDefault);
 

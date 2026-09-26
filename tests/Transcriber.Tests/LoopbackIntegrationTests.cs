@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Transcriber.Audio.Windows;
 using Transcriber.Core.Audio;
 using Transcriber.Core.Settings;
 using Transcriber.Core.Stt;

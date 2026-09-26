@@ -17,11 +17,17 @@ public interface INoteDestination
 
 public static class NoteDestinations
 {
+    /// <summary>
+    /// Builds the "Markdown folder" destination. Platforms whose folders aren't plain paths (Android's
+    /// storage-access URIs) replace it at startup.
+    /// </summary>
+    public static Func<string, INoteDestination> FolderFactory { get; set; } = folder => new FolderDestination(folder);
+
     public static INoteDestination Create(OutputSettings s) => s.Destination switch
     {
         OutputKind.Obsidian => new ObsidianDestination(s.ObsidianUrl, s.ObsidianApiKey, s.ObsidianFolder, s.ObsidianCertificate),
         OutputKind.ObsidianMcp => new Mcp.McpDestination(s.McpUrl, s.ObsidianFolder),
-        _ => new FolderDestination(s.MarkdownFolder),
+        _ => FolderFactory(s.MarkdownFolder),
     };
 }
 

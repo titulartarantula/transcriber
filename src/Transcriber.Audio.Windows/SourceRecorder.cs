@@ -2,7 +2,9 @@ using System.Diagnostics;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 
-namespace Transcriber.Core.Audio;
+using Transcriber.Core.Audio;
+
+namespace Transcriber.Audio.Windows;
 
 /// <summary>
 /// Records one WASAPI endpoint to a WAV file in its native format, keeping the file aligned to a

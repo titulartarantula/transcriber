@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using NAudio.CoreAudioApi;
+using Transcriber.Audio.Windows;
 using Transcriber.Core.Audio;
 using Wpf.Ui.Controls;
 

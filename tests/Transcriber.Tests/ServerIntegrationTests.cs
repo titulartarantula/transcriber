@@ -38,6 +38,12 @@ public class ServerIntegrationTests(ITestOutputHelper output)
         foreach (var w in result.Warnings) output.WriteLine("WARN: " + w);
 
         Assert.Contains("**[", md);
-        Assert.Contains("Speaker 2", md);
+        // Names may be auto-suggested ("Sanjay") since review is off, so count voices rather than match labels.
+        var voices = md.Split('\n')
+            .SkipWhile(l => !l.StartsWith("speakers:"))
+            .Skip(1)
+            .TakeWhile(l => l.StartsWith("  - "))
+            .Count();
+        Assert.True(voices >= 2, $"expected at least two speakers, found {voices}");
     }
 }

@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Threading;
 using Transcriber.Core;
+using Transcriber.Core.Audio;
 using Wpf.Ui.Appearance;
 
 namespace Transcriber.App;
@@ -10,6 +11,8 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        // Media Foundation decodes mp3, m4a and the like for "Transcribe a file…".
+        AudioConvert.ExternalDecoder = path => new NAudio.Wave.AudioFileReader(path);
         ApplicationThemeManager.ApplySystemTheme();
     }
 

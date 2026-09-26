@@ -8,11 +8,57 @@ public static class AudioConvert
     /// <summary>Whisper and the diarization models both expect 16 kHz mono.</summary>
     public const int SampleRate = 16000;
 
-    /// <summary>Decodes any file Media Foundation understands to 16 kHz mono float samples.</summary>
+    /// <summary>
+    /// Opens non-WAV files (mp3, m4a, ...). Set by the platform: Media Foundation on Windows. WAV is
+    /// always read directly, so recordings work everywhere without it.
+    /// </summary>
+    public static Func<string, WaveStream>? ExternalDecoder { get; set; }
+
+    private static readonly Guid FloatSubFormat = new("00000003-0000-0010-8000-00aa00389b71");
+
+    /// <summary>Opens an audio file as a stream NAudio can turn into float samples.</summary>
+    public static WaveStream Open(string path)
+    {
+        if (!Path.GetExtension(path).Equals(".wav", StringComparison.OrdinalIgnoreCase))
+        {
+            return ExternalDecoder?.Invoke(path)
+                ?? throw new NotSupportedException($"{Path.GetExtension(path)} files can't be decoded on this device; use WAV.");
+        }
+
+        var wav = new WaveFileReader(path);
+        var f = wav.WaveFormat;
+        if (f.Encoding != WaveFormatEncoding.Extensible) return wav;
+
+        // WASAPI writes WAVE_FORMAT_EXTENSIBLE, which NAudio's sample converters don't accept. Relabel it
+        // as the plain float or PCM format its sub-format GUID says it is.
+        var plain = ExtensibleSubFormat(f) == FloatSubFormat
+            ? WaveFormat.CreateIeeeFloatWaveFormat(f.SampleRate, f.Channels)
+            : new WaveFormat(f.SampleRate, f.BitsPerSample, f.Channels);
+        return new RelabelledStream(wav, plain);
+    }
+
+    /// <summary>The SubFormat GUID from WAVEFORMATEXTENSIBLE's extra bytes (after valid-bits and channel mask).</summary>
+    private static Guid? ExtensibleSubFormat(WaveFormat format)
+    {
+        byte[]? extra = format switch
+        {
+            WaveFormatExtraData d => d.ExtraData,
+            _ => null,
+        };
+        return extra is { Length: >= 22 } ? new Guid(extra.AsSpan(6, 16)) : null;
+    }
+
+    public static TimeSpan GetDuration(string path)
+    {
+        using var stream = Open(path);
+        return stream.TotalTime;
+    }
+
+    /// <summary>Decodes an audio file to 16 kHz mono float samples.</summary>
     public static float[] LoadMono16k(string path)
     {
-        using var reader = new AudioFileReader(path);
-        ISampleProvider provider = reader;
+        using var reader = Open(path);
+        ISampleProvider provider = reader.ToSampleProvider();
         if (provider.WaveFormat.Channels > 1) provider = new DownmixToMono(provider);
         if (provider.WaveFormat.SampleRate != SampleRate) provider = new WdlResamplingSampleProvider(provider, SampleRate);
 
@@ -45,6 +91,28 @@ public static class AudioConvert
             if (Math.Sqrt(sum / (end - start)) >= thresholdRms) return false;
         }
         return true;
+    }
+
+    /// <summary>Reads another stream's bytes under a different format header, and owns (disposes) it.</summary>
+    private sealed class RelabelledStream(WaveStream inner, WaveFormat format) : WaveStream
+    {
+        public override WaveFormat WaveFormat => format;
+
+        public override long Length => inner.Length;
+
+        public override long Position
+        {
+            get => inner.Position;
+            set => inner.Position = value;
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => inner.Read(buffer, offset, count);
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) inner.Dispose();
+            base.Dispose(disposing);
+        }
     }
 
     private sealed class DownmixToMono : ISampleProvider

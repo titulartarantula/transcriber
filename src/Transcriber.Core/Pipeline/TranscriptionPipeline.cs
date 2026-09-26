@@ -1,4 +1,3 @@
-using NAudio.Wave;
 using Transcriber.Core.Audio;
 using Transcriber.Core.Diarization;
 using Transcriber.Core.Output;
@@ -202,8 +201,7 @@ public sealed class TranscriptionPipeline(AppSettings settings, SpeakerReview? r
     {
         var directory = Path.Combine(AppPaths.Recordings, "import-" + DateTime.Now.ToString("yyyyMMdd-HHmmss"));
         Directory.CreateDirectory(directory);
-        TimeSpan duration;
-        using (var reader = new AudioFileReader(path)) duration = reader.TotalTime;
+        var duration = AudioConvert.GetDuration(path);
 
         var written = new DateTimeOffset(File.GetLastWriteTime(path));
         return new SessionRecording(

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:Transcriber.Mobile"
+             x:Class="Transcriber.Mobile.SpeakerReviewPage"
+             x:DataType="local:SpeakerReviewPage"
+             Title="Who was speaking?">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="20,16,20,20" RowSpacing="12">
+        <VerticalStackLayout Spacing="4">
+            <Label Text="Who was speaking?" FontSize="22" FontFamily="OpenSansSemibold" />
+            <Label Style="{StaticResource Hint}"
+                   Text="Name each speaker, or leave a box empty to keep the label. Giving two speakers the same name merges them." />
+        </VerticalStackLayout>
+
+        <CollectionView x:Name="Speakers" Grid.Row="1">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="local:SpeakerRow">
+                    <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+                        <VerticalStackLayout Spacing="6">
+                            <Label>
+                                <Label.FormattedText>
+                                    <FormattedString>
+                                        <Span Text="{Binding Speaker}" FontFamily="OpenSansSemibold" />
+                                        <Span Text="{Binding TalkTime}" TextColor="{StaticResource Gray500}" />
+                                    </FormattedString>
+                                </Label.FormattedText>
+                            </Label>
+                            <Label Text="{Binding Sample}" FontAttributes="Italic" />
+                            <Label Text="{Binding Hint}" Style="{StaticResource Hint}" IsVisible="{Binding HasHint}" />
+                            <Entry Text="{Binding Name}" Placeholder="{Binding Speaker}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="12">
+            <Button Text="Keep labels" Clicked="OnKeep" BackgroundColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}"
+                    TextColor="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource White}}" />
+            <Button Grid.Column="1" Text="Save note" Clicked="OnSave" />
+        </Grid>
+    </Grid>
+</ContentPage>
