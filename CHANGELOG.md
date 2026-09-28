@@ -8,7 +8,30 @@ its release and uses them as the GitHub release notes.
 
 ### Windows
 
+- Recording is never blocked by transcription. Stopping a recording queues it, and the new **Transcripts**
+  list shows each one's progress with Name speakers, Cancel, Retry, Reprocess, Open note and Delete.
+- A transcript waiting for speaker names no longer holds up the next one. The naming dialog's new **Later**
+  button leaves it waiting; **Keep labels** saves with the automatic labels.
+- Unfinished transcripts, and failed or cancelled ones, survive closing the app. Retry works after a restart.
+- Speaker separation runs on the Whisper server when it offers `/v1/audio/diarization` (pyannote
+  community-1 on its GPU). Otherwise it runs on this PC as before. New setting: **Separate voices on the
+  server when it supports it**.
+- New setting **Keep the audio after the note is saved**: keeps each recording's 16 kHz copy so it can be
+  reprocessed with different settings later.
+- Each transcript shows how long transcription and voice separation took, and where voices were separated.
+- Recordings with no voices to tell apart are saved without stopping for the naming dialog.
+
 ### Android
+
+- Recording is never blocked by transcription. Stopping a recording queues it, and a **Transcripts** list
+  shows each one's progress with Name speakers, Cancel, Retry, Reprocess and Delete.
+- A transcript waiting for speaker names no longer holds up the next one. A notification says when one is
+  ready to name. Going back from the naming screen leaves it waiting.
+- Unfinished transcripts survive the app being closed or killed, and resume the next time it's opened.
+- Speaker separation runs on the Whisper server when it offers `/v1/audio/diarization`, which is faster
+  and easier on the battery. Otherwise it runs on the phone as before.
+- New setting **Keep audio to reprocess later**.
+- While only transcribing, the background service runs as a data sync service rather than a microphone one.
 
 ## Windows 0.1.1 - 2026-09-26
 

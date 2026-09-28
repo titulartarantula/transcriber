@@ -14,12 +14,13 @@ your Obsidian vault.
   encrypted with Windows DPAPI.
 - **Separates speakers.**
   - Each source is labelled with its own name, for example *Me* for your mic and *Remote* for the call.
-  - Sources with **Split voices** on are diarized locally (pyannote segmentation plus speaker embeddings,
-    via sherpa-onnx, on the CPU), which gives *Remote 1*, *Remote 2*, and so on.
+  - Sources with **Split voices** on are diarized, which gives *Remote 1*, *Remote 2*, and so on. If
+    your server offers `/v1/audio/diarization` (see [Speaker separation on the server](#speaker-separation-on-the-server)),
+    it does this on its GPU with pyannote community-1. Otherwise it runs on this PC: pyannote segmentation
+    plus speaker embeddings, via sherpa-onnx, on the CPU.
   - Names are suggested from what people say: self-introductions ("Hi, I'm Priya") and greetings that
     name whoever replies ("Thanks, Sanjay.").
-  - Before the note is saved, a dialog shows each speaker with a sample line so you can confirm or type
-    names.
+  - Before the note is saved, you can name each speaker, seeing a sample line from each.
   - If you listen on speakers rather than headphones, your mic re-records the call. Those mic lines are
     detected and dropped.
 - **Writes a note** with YAML frontmatter (date, start and end time, duration, speakers, sources, model, tags) and
@@ -31,6 +32,13 @@ your Obsidian vault.
 
   You can save it as a Markdown file in any folder, or push it through the Obsidian Local REST API. If
   Obsidian isn't running, the note is kept in `%LOCALAPPDATA%\Transcriber\unsent` so nothing is lost.
+- **Queues transcripts.** Pressing Stop hands the recording to a background queue, so you can start the
+  next meeting straight away. The **Transcripts** list shows each one as it goes: waiting, transcribing,
+  needs names, saved. A transcript waiting for names doesn't hold up the ones behind it. Unfinished work
+  survives closing the app and resumes next time.
+- **Keeps audio if you want.** With **Keep the audio** on (Settings → Output), each recording's 16 kHz copy
+  stays after the note is saved, and **Reprocess** runs it again with whatever model and speaker settings
+  you have then.
 - **Transcribe a file…** runs an existing recording through the same pipeline.
 
 ## Setup
@@ -79,10 +87,24 @@ reconnect.
 
 The first time voices are split, about 32 MB of models are downloaded to `%LOCALAPPDATA%\Transcriber\models`.
 
+## Speaker separation on the server
+
+On-device diarization tends to find too many speakers in long or noisy recordings. A server with a GPU can
+run pyannote's community-1 pipeline instead. Its VBx clustering is more accurate, and it's much faster
+than a laptop or phone CPU.
+
+The [whisper-server](../whisper-server) project packages faster-whisper-server with a
+`/v1/audio/diarization` endpoint in the same container. The app checks for the endpoint on each
+recording and uses it when **Separate voices on the server when it supports it** is on (the default).
+If the server doesn't offer it, or it fails, voices are separated on the device as before, with a warning
+in the second case. **Test and load models** in Settings says which one you'll get. Each transcript shows
+how long transcription and voice separation took, and where the voices were separated.
+
 ## Tips for better speaker separation
 
 - If you know how many people are on the remote side, set **Voices per split source**. That's the most
-  reliable setting. On Auto, the slider in Settings trades finding more voices against merging similar ones.
+  reliable setting. On Auto, on-device separation uses the slider in Settings, which trades finding more
+  voices against merging similar ones. The server estimates the count itself.
 - Leave **Split voices** off for your own headset mic. It only ever hears you, and its label ("Me") is
   already right.
 - Wear headphones if you can. Echo removal catches most leakage, but a clean mic track is better.
@@ -92,26 +114,27 @@ The first time voices are split, about 32 MB of models are downloaded to `%LOCAL
 | What | Path |
 | --- | --- |
 | Settings (keys DPAPI-encrypted) | `%APPDATA%\Transcriber\settings.json` |
-| Recordings in progress, or ones that failed to transcribe | `%LOCALAPPDATA%\Transcriber\recordings` |
+| Recordings and their transcript queue (`job.json` per recording) | `%LOCALAPPDATA%\Transcriber\recordings` |
 | Diarization models | `%LOCALAPPDATA%\Transcriber\models` |
 | Notes Obsidian couldn't accept | `%LOCALAPPDATA%\Transcriber\unsent` |
 | Crash log | `%LOCALAPPDATA%\Transcriber\error.log` |
 
-Recordings are deleted once the note is saved. If transcription fails, the audio is kept and **Retry**
-sends it again.
+Recordings are deleted once the note is saved, unless **Keep the audio** is on. If transcription fails
+or is cancelled, the audio is kept and **Retry** sends it again, even after a restart.
 
 ## Android app
 
 `src/Transcriber.Mobile` is an Android version (.NET 10 MAUI, Android 10 and later) that shares the core
-library: the same Whisper client, on-device speaker separation, naming, Markdown and Obsidian outputs.
+library: the same Whisper client, speaker separation (on the server, or on the phone), transcript queue,
+naming, Markdown and Obsidian outputs.
 
 - **Microphone:** choose the phone's own mic or a connected Bluetooth, wired or USB headset. Bluetooth
   headsets are switched to their call (hands-free) mic while recording; they appear in the list once
   connected for calls, not just media.
-- **Speakers:** one mic in a room usually hears several people, so **Split voices** is on by default and
-  the naming screen appears before saving.
+- **Speakers:** one mic in a room usually hears several people, so **Split voices** is on by default. Each
+  transcript waits in the list for you to name its speakers. A notification tells you when one is ready.
 - **Background recording:** a notification keeps recording and transcription running with the screen off
-  or while you use other apps.
+  or while you use other apps. You can start a new recording while earlier ones are still transcribing.
 - **Outputs:** Obsidian through an MCP server, the Local REST API over LAN/WireGuard (with the same
   certificate pinning), or a folder on the phone picked with Android's folder picker, for example the vault
   folder Obsidian mobile or Syncthing uses.
