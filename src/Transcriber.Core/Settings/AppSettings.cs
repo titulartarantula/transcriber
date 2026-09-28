@@ -48,13 +48,19 @@ public sealed class SttSettings
 
 public sealed class SpeakerSettings
 {
-    /// <summary>Master switch for local diarization; each source also has its own toggle.</summary>
+    /// <summary>Master switch for diarization; each source also has its own toggle.</summary>
     public bool Diarize { get; set; } = true;
+
+    /// <summary>
+    /// Ask the STT server to separate voices when it offers /v1/audio/diarization; otherwise, or if that
+    /// fails, separate them on this device.
+    /// </summary>
+    public bool UseServer { get; set; } = true;
 
     /// <summary>Speakers per diarized source, or 0 to estimate.</summary>
     public int ExpectedSpeakers { get; set; }
 
-    /// <summary>Clustering distance used when the speaker count is estimated. Higher merges more.</summary>
+    /// <summary>On-device clustering distance used when the speaker count is estimated. Higher merges more.</summary>
     public float ClusterThreshold { get; set; } = 0.9f;
 
     public bool ReviewNames { get; set; } = true;
@@ -105,6 +111,9 @@ public sealed class OutputSettings
 
     /// <summary>Write speakers as [[wikilinks]] so they connect to people notes.</summary>
     public bool LinkSpeakers { get; set; }
+
+    /// <summary>Keep each recording's 16 kHz audio after the note is saved so it can be reprocessed.</summary>
+    public bool KeepAudio { get; set; }
 }
 
 public sealed class SourcePreference
