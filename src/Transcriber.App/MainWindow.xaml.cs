@@ -5,11 +5,12 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using Transcriber.Audio.Windows;
+using Transcriber.Core;
 using Transcriber.Core.Audio;
+using Transcriber.Core.Jobs;
 using Transcriber.Core.Output;
 using Transcriber.Core.Pipeline;
 using Transcriber.Core.Settings;
-using Transcriber.Core.Transcript;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
 
@@ -17,32 +18,34 @@ namespace Transcriber.App;
 
 public partial class MainWindow : FluentWindow
 {
-    private enum Mode { Idle, Recording, Processing }
+    private enum Mode { Idle, Recording }
 
     private enum Tone { Busy, Success, Warning, Error }
 
     private readonly ObservableCollection<SourceItem> _sources = new();
+    private readonly ObservableCollection<JobItem> _jobs = new();
     private readonly DispatcherTimer _timer;
+    private readonly JobQueue _queue;
     private AppSettings _settings;
     private RecordingSession? _session;
-    private CancellationTokenSource? _processing;
     private Mode _mode = Mode.Idle;
-
-    /// <summary>A recording whose transcription failed, kept so it can be retried.</summary>
-    private SessionRecording? _failed;
-    private string? _openTarget;
-    private string? _folderTarget;
 
     public MainWindow()
     {
         InitializeComponent();
         _settings = SettingsStore.Load();
         SourcesList.ItemsSource = _sources;
+        JobsList.ItemsSource = _jobs;
 
         VoicesBox.ItemsSource = new[] { "Auto", "2", "3", "4", "5", "6", "8" };
         VoicesBox.SelectedItem = _settings.Speakers.ExpectedSpeakers > 0
             ? _settings.Speakers.ExpectedSpeakers.ToString()
             : "Auto";
+
+        // Each job step gets the settings as they are when it starts.
+        _queue = new JobQueue(new JobStore(AppPaths.Recordings), () => new TranscriptionPipeline(_settings.Clone()));
+        _queue.Changed += job => Dispatcher.BeginInvoke(() => ShowJob(job));
+        _queue.Removed += id => Dispatcher.BeginInvoke(() => HideJob(id));
 
         _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(80), DispatcherPriority.Background, OnTick, Dispatcher);
         Loaded += (_, _) =>
@@ -50,6 +53,8 @@ public partial class MainWindow : FluentWindow
             SystemThemeWatcher.Watch(this);
             LoadDevices();
             _timer.Start();
+            _queue.Start();
+            foreach (var job in _queue.Jobs) ShowJob(job);
             if (string.IsNullOrWhiteSpace(_settings.Stt.BaseUrl) || _settings.Stt.BaseUrl == new SttSettings().BaseUrl)
                 ShowStatus(Tone.Warning, "Set your speech-to-text server in Settings before recording.");
         };
@@ -150,7 +155,7 @@ public partial class MainWindow : FluentWindow
             var recording = _sources.Where(s => s.Selected).ToList();
             for (int i = 0; i < recording.Count && i < peaks.Length; i++) recording[i].Level = Scale(peaks[i]);
         }
-        else if (_mode == Mode.Idle)
+        else
         {
             foreach (var s in _sources) s.Level = Scale(s.ReadSystemMeter());
         }
@@ -163,8 +168,8 @@ public partial class MainWindow : FluentWindow
 
     private async void OnRecord(object sender, RoutedEventArgs e)
     {
-        if (_mode == Mode.Recording) await StopAndTranscribeAsync();
-        else if (_mode == Mode.Idle) StartRecording();
+        if (_mode == Mode.Recording) await StopAndQueueAsync();
+        else StartRecording();
     }
 
     private void StartRecording()
@@ -190,22 +195,30 @@ public partial class MainWindow : FluentWindow
             return;
         }
 
-        _failed = null;
         SetMode(Mode.Recording);
         ShowStatus(Tone.Busy, $"Recording {string.Join(", ", selections.Select(s => s.Label))}…",
-            "Press Stop when you're done. The transcript is made after the recording ends.");
+            "Press Stop when you're done. It's transcribed in the background, so you can start the next recording right away.");
     }
 
-    private async Task StopAndTranscribeAsync()
+    private async Task StopAndQueueAsync()
     {
         var session = _session!;
         _session = null;
+        RecordButton.IsEnabled = false;
         var recording = await session.StopAsync();
+        RecordButton.IsEnabled = true;
+        SetMode(Mode.Idle);
+        TitleBox.Text = "";
+
+        _queue.Enqueue(recording, _settings.Speakers.ExpectedSpeakers);
         var dropped = session.Failures.Select(f => $"{f.Device} stopped early: {f.Error.Message}").ToList();
-        await TranscribeAsync(recording, dropped);
+        if (dropped.Count > 0)
+            ShowStatus(Tone.Warning, "Recording saved, but not every source made it to the end.", string.Join("\n", dropped));
+        else
+            StatusCard.Visibility = Visibility.Collapsed;
     }
 
-    private async void OnTranscribeFile(object sender, RoutedEventArgs e)
+    private void OnTranscribeFile(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog
         {
@@ -225,64 +238,84 @@ public partial class MainWindow : FluentWindow
             return;
         }
 
-        if (!string.IsNullOrWhiteSpace(TitleBox.Text)) recording = recording with { Title = TitleBox.Text.Trim() };
-        await TranscribeAsync(recording, []);
-    }
-
-    private async void OnRetry(object sender, RoutedEventArgs e)
-    {
-        if (_failed is { } recording) await TranscribeAsync(recording, []);
-    }
-
-    private async Task TranscribeAsync(SessionRecording recording, IReadOnlyList<string> earlierWarnings)
-    {
-        SetMode(Mode.Processing);
-        _processing = new CancellationTokenSource();
-        var progress = new Progress<string>(m => ShowStatus(Tone.Busy, m));
-        var pipeline = new TranscriptionPipeline(_settings.Clone(), ReviewSpeakersAsync);
-        ShowStatus(Tone.Busy, "Starting transcription…");
-
-        try
+        if (!string.IsNullOrWhiteSpace(TitleBox.Text))
         {
-            var result = await Task.Run(() => pipeline.RunAsync(recording, progress, _processing.Token));
-            _failed = null;
-            var warnings = earlierWarnings.Concat(result.Warnings).ToList();
-            var headline = result.UtteranceCount == 0
-                ? "No speech was found, but an empty note was saved."
-                : $"Saved {result.Note.Description}";
-            ShowStatus(warnings.Count > 0 ? Tone.Warning : Tone.Success, headline, string.Join("\n", warnings),
-                open: result.Note.LocalPath, folder: result.Note.LocalPath is { } p ? Path.GetDirectoryName(p) : null);
+            recording = recording with { Title = TitleBox.Text.Trim() };
             TitleBox.Text = "";
         }
-        catch (OperationCanceledException)
-        {
-            _failed = recording;
-            ShowStatus(Tone.Warning, "Transcription cancelled.", $"The recording is kept in {recording.Directory}.",
-                folder: recording.Directory, retry: true);
-        }
-        catch (Exception ex)
-        {
-            _failed = recording;
-            ShowStatus(Tone.Error, "Transcription failed.", $"{ex.Message}\nThe recording is kept in {recording.Directory}.",
-                folder: recording.Directory, retry: true);
-        }
-        finally
-        {
-            _processing.Dispose();
-            _processing = null;
-            SetMode(Mode.Idle);
-        }
+        _queue.Enqueue(recording, _settings.Speakers.ExpectedSpeakers);
     }
 
-    /// <summary>Called from the pipeline's worker thread; hops to the UI for the naming dialog.</summary>
-    private Task<IReadOnlyDictionary<string, string>?> ReviewSpeakersAsync(IReadOnlyList<SpeakerSummary> speakers, CancellationToken ct) =>
-        Dispatcher.InvokeAsync(() =>
-        {
-            var dialog = new SpeakerReviewWindow(speakers) { Owner = this };
-            return dialog.ShowDialog() == true ? dialog.Names : null;
-        }).Task;
+    // ----- Transcripts ---------------------------------------------------------------------
 
-    private void OnCancel(object sender, RoutedEventArgs e) => _processing?.Cancel();
+    private void ShowJob(TranscriptionJob job)
+    {
+        if (_jobs.FirstOrDefault(j => j.Id == job.Id) is { } item)
+        {
+            item.Job = job;
+        }
+        else
+        {
+            // Newest first, the same order the queue lists them in.
+            int at = _jobs.TakeWhile(j => j.Job.CreatedAt > job.CreatedAt).Count();
+            _jobs.Insert(at, new JobItem(job));
+        }
+        JobsHeader.Visibility = Visibility.Visible;
+    }
+
+    private void HideJob(string id)
+    {
+        if (_jobs.FirstOrDefault(j => j.Id == id) is { } item) _jobs.Remove(item);
+        if (_jobs.Count == 0) JobsHeader.Visibility = Visibility.Collapsed;
+    }
+
+    private static JobItem ItemOf(object sender) => (JobItem)((FrameworkElement)sender).DataContext;
+
+    private async void OnNameSpeakers(object sender, RoutedEventArgs e)
+    {
+        var item = ItemOf(sender);
+        if (_queue.GetSummaries(item.Id) is not { } speakers) return;
+
+        var dialog = new SpeakerReviewWindow(speakers) { Owner = this, Title = $"Who was speaking in “{item.Title}”?" };
+        // Closing without choosing leaves the job waiting, to be named later.
+        if (dialog.ShowDialog() == true && dialog.Names is { } names)
+            await _queue.SubmitNamesAsync(item.Id, names);
+    }
+
+    private void OnOpenNote(object sender, RoutedEventArgs e)
+    {
+        if (ItemOf(sender).Job.NoteLocalPath is { } path) Shell(path);
+    }
+
+    private void OnShowJobFolder(object sender, RoutedEventArgs e)
+    {
+        var job = ItemOf(sender).Job;
+        if (job.NoteLocalPath is { } note && File.Exists(note))
+            Process.Start("explorer.exe", $"/select,\"{note}\"");
+        else if (Directory.Exists(job.Recording.Directory))
+            Shell(job.Recording.Directory);
+        else
+            ShowStatus(Tone.Warning, "That folder no longer exists.");
+    }
+
+    private void OnRetryJob(object sender, RoutedEventArgs e) => _queue.Retry(ItemOf(sender).Id);
+
+    private void OnReprocessJob(object sender, RoutedEventArgs e) => _queue.Reprocess(ItemOf(sender).Id);
+
+    private void OnCancelJob(object sender, RoutedEventArgs e) => _queue.Cancel(ItemOf(sender).Id);
+
+    private void OnRemoveJob(object sender, RoutedEventArgs e)
+    {
+        var item = ItemOf(sender);
+        if (item.RemoveDeletesAudio)
+        {
+            var answer = System.Windows.MessageBox.Show(
+                $"Delete the recording of “{item.Title}”? Its audio can't be recovered. Notes already saved are not affected.",
+                "Transcriber", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning);
+            if (answer != System.Windows.MessageBoxResult.Yes) return;
+        }
+        _queue.Remove(item.Id);
+    }
 
     // ----- Status and state ----------------------------------------------------------------
 
@@ -292,21 +325,20 @@ public partial class MainWindow : FluentWindow
         bool idle = mode == Mode.Idle;
         SourcesList.IsEnabled = idle;
         RefreshButton.IsEnabled = idle;
-        FileButton.IsEnabled = idle;
-        TitleBox.IsEnabled = mode != Mode.Processing;
         VoicesBox.IsEnabled = idle;
-        CancelButton.Visibility = mode == Mode.Processing ? Visibility.Visible : Visibility.Collapsed;
 
-        RecordButton.IsEnabled = mode != Mode.Processing;
-        RecordButton.Content = mode == Mode.Recording ? "Stop and transcribe" : "Start recording";
-        RecordButton.Icon = new SymbolIcon(mode == Mode.Recording ? SymbolRegular.Stop24 : SymbolRegular.Record24);
-        RecordButton.Appearance = mode == Mode.Recording ? ControlAppearance.Danger : ControlAppearance.Primary;
+        RecordButton.Content = idle ? "Start recording" : "Stop and transcribe";
+        RecordButton.Icon = new SymbolIcon(idle ? SymbolRegular.Record24 : SymbolRegular.Stop24);
+        RecordButton.Appearance = idle ? ControlAppearance.Primary : ControlAppearance.Danger;
 
-        if (mode == Mode.Idle) ElapsedText.Text = "00:00:00";
-        if (mode != Mode.Recording) foreach (var s in _sources) s.Level = 0;
+        if (idle)
+        {
+            ElapsedText.Text = "00:00:00";
+            foreach (var s in _sources) s.Level = 0;
+        }
     }
 
-    private void ShowStatus(Tone tone, string text, string? detail = null, string? open = null, string? folder = null, bool retry = false)
+    private void ShowStatus(Tone tone, string text, string? detail = null)
     {
         StatusCard.Visibility = Visibility.Visible;
         StatusText.Text = text;
@@ -323,25 +355,6 @@ public partial class MainWindow : FluentWindow
             _ => (SymbolRegular.Info24, "TextFillColorSecondaryBrush"),
         };
         StatusIcon.Foreground = TryFindResource(brushKey) as Brush ?? Brushes.Gray;
-
-        _openTarget = open;
-        _folderTarget = folder;
-        OpenButton.Visibility = open is null ? Visibility.Collapsed : Visibility.Visible;
-        FolderButton.Visibility = folder is null ? Visibility.Collapsed : Visibility.Visible;
-        RetryButton.Visibility = retry ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    private void OnOpen(object sender, RoutedEventArgs e)
-    {
-        if (_openTarget is not null) Shell(_openTarget);
-    }
-
-    private void OnShowFolder(object sender, RoutedEventArgs e)
-    {
-        if (_openTarget is not null && File.Exists(_openTarget))
-            Process.Start("explorer.exe", $"/select,\"{_openTarget}\"");
-        else if (_folderTarget is not null)
-            Shell(_folderTarget);
     }
 
     private void Shell(string target)
@@ -372,21 +385,31 @@ public partial class MainWindow : FluentWindow
 
     private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        if (_mode != Mode.Idle)
+        if (_mode == Mode.Recording)
         {
-            var what = _mode == Mode.Recording ? "A recording is in progress" : "A transcription is running";
             var answer = System.Windows.MessageBox.Show(
-                $"{what}. Quit anyway? Audio recorded so far stays in the recordings folder.",
+                "A recording is in progress. Quit anyway? Audio recorded so far stays in the recordings folder.",
                 "Transcriber", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning);
             if (answer != System.Windows.MessageBoxResult.Yes)
             {
                 e.Cancel = true;
                 return;
             }
-            _processing?.Cancel();
             _session?.Dispose();
         }
+        else if (_queue.IsBusy)
+        {
+            var answer = System.Windows.MessageBox.Show(
+                "Transcripts are still being made. Quit anyway? They'll pick up where they left off next time you open Transcriber.",
+                "Transcriber", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
+            if (answer != System.Windows.MessageBoxResult.Yes)
+            {
+                e.Cancel = true;
+                return;
+            }
+        }
 
+        _queue.Dispose();
         _timer.Stop();
         SavePreferences();
         foreach (var item in _sources) item.Dispose();

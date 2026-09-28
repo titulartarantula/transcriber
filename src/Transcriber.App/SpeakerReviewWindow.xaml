@@ -58,7 +58,10 @@
                 BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                 Background="{DynamicResource LayerFillColorDefaultBrush}">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <ui:Button Content="Keep labels" MinWidth="110" Margin="0,0,8,0" IsCancel="True" />
+                <ui:Button Content="Later" MinWidth="90" Margin="0,0,8,0" IsCancel="True"
+                           ToolTip="Close without saving; the transcript waits in the list until you name it." />
+                <ui:Button Content="Keep labels" MinWidth="110" Margin="0,0,8,0" Click="OnKeep"
+                           ToolTip="Save the note with the automatic labels (Remote 1, Remote 2, …)." />
                 <ui:Button Content="Save note" MinWidth="110" Appearance="Primary" IsDefault="True" Click="OnSave" />
             </StackPanel>
         </Border>

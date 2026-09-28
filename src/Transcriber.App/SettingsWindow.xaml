@@ -67,9 +67,11 @@
                 <ui:Card Padding="16" Margin="0,0,0,20">
                     <StackPanel>
                         <ui:ToggleSwitch x:Name="Diarize" Content="Split voices on sources that have &quot;Split voices&quot; on" />
-                        <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0"
-                                   Text="Runs locally on this PC. About 32 MB of models are downloaded the first time." />
-                        <TextBlock Style="{StaticResource FieldLabel}" Text="When the number of voices is Auto" />
+                        <ui:ToggleSwitch x:Name="UseServer" Margin="0,10,0,0"
+                                         Content="Separate voices on the server when it supports it" />
+                        <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                   Text="Servers set up with pyannote (see the whisper-server project) separate voices on their GPU, more accurately. Otherwise it runs on this PC, which downloads about 32 MB of models the first time." />
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="On this PC, when the number of voices is Auto" />
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -187,6 +189,10 @@
                         <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" Text="File name tokens: {date} {time} {title}" />
                         <ui:ToggleSwitch x:Name="LinkSpeakers" Margin="0,14,0,0"
                                          Content="Write speakers as [[links]] to people notes" />
+                        <ui:ToggleSwitch x:Name="KeepAudio" Margin="0,10,0,0"
+                                         Content="Keep the audio after the note is saved, so it can be reprocessed" />
+                        <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                   Text="Kept as 16 kHz mono, about 115 MB per hour per source, in %LOCALAPPDATA%\Transcriber\recordings. Delete recordings from the transcript list." />
                     </StackPanel>
                 </ui:Card>
             </StackPanel>

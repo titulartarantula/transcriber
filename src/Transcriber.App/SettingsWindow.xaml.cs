@@ -26,6 +26,7 @@ public partial class SettingsWindow : FluentWindow
         SttVad.IsChecked = settings.Stt.VadFilter;
 
         Diarize.IsChecked = settings.Speakers.Diarize;
+        UseServer.IsChecked = settings.Speakers.UseServer;
         Threshold.Value = settings.Speakers.ClusterThreshold;
         ReviewNames.IsChecked = settings.Speakers.ReviewNames;
         SuppressEcho.IsChecked = settings.Speakers.SuppressEcho;
@@ -37,6 +38,7 @@ public partial class SettingsWindow : FluentWindow
         FileNameTemplate.Text = settings.Output.FileNameTemplate;
         Tags.Text = settings.Output.Tags;
         LinkSpeakers.IsChecked = settings.Output.LinkSpeakers;
+        KeepAudio.IsChecked = settings.Output.KeepAudio;
         McpUrl.Text = settings.Output.McpUrl;
         (settings.Output.Destination switch
         {
@@ -63,6 +65,7 @@ public partial class SettingsWindow : FluentWindow
         s.Stt.VadFilter = SttVad.IsChecked == true;
 
         s.Speakers.Diarize = Diarize.IsChecked == true;
+        s.Speakers.UseServer = UseServer.IsChecked == true;
         s.Speakers.ClusterThreshold = (float)Math.Round(Threshold.Value, 2);
         s.Speakers.ReviewNames = ReviewNames.IsChecked == true;
         s.Speakers.SuppressEcho = SuppressEcho.IsChecked == true;
@@ -78,6 +81,7 @@ public partial class SettingsWindow : FluentWindow
         s.Output.FileNameTemplate = FileNameTemplate.Text.Trim();
         s.Output.Tags = Tags.Text.Trim();
         s.Output.LinkSpeakers = LinkSpeakers.IsChecked == true;
+        s.Output.KeepAudio = KeepAudio.IsChecked == true;
     }
 
     private void OnSave(object sender, RoutedEventArgs e)
@@ -123,9 +127,12 @@ public partial class SettingsWindow : FluentWindow
             var current = SttModel.Text;
             SttModel.ItemsSource = models;
             SttModel.Text = current;
+            var voices = await client.SupportsDiarizationAsync()
+                ? "It separates voices itself."
+                : "It doesn't separate voices, so this PC will.";
             ShowResult(SttResult, models.Count == 0
-                ? "Connected, but the server listed no models. Type a model name."
-                : $"Connected. {models.Count.ToString(CultureInfo.CurrentCulture)} models available.");
+                ? $"Connected, but the server listed no models. Type a model name. {voices}"
+                : $"Connected. {models.Count.ToString(CultureInfo.CurrentCulture)} models available. {voices}");
         }
         catch (Exception ex)
         {

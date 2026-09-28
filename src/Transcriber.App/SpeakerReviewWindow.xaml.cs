@@ -29,7 +29,14 @@ public partial class SpeakerReviewWindow : FluentWindow
         SpeakerList.ItemsSource = _rows;
     }
 
+    /// <summary>Label → name after Save; empty after Keep labels; null if the window was closed.</summary>
     public IReadOnlyDictionary<string, string>? Names { get; private set; }
+
+    private void OnKeep(object sender, RoutedEventArgs e)
+    {
+        Names = new Dictionary<string, string>();
+        DialogResult = true;
+    }
 
     private void OnSave(object sender, RoutedEventArgs e)
     {
