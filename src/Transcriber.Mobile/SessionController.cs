@@ -1,26 +1,28 @@
 using Transcriber.Core;
 using Transcriber.Core.Audio;
+using Transcriber.Core.Jobs;
 using Transcriber.Core.Pipeline;
 using Transcriber.Core.Settings;
-using Transcriber.Core.Transcript;
 
 namespace Transcriber.Mobile;
 
-public enum SessionMode { Idle, Recording, Processing }
+public enum SessionMode { Idle, Recording }
 
 public enum Tone { Busy, Success, Warning, Error }
 
-public sealed record SessionStatus(Tone Tone, string Text, string? Detail = null, bool CanRetry = false);
+public sealed record SessionStatus(Tone Tone, string Text, string? Detail = null);
 
 /// <summary>
-/// Owns the recording and its transcription for the life of the process, so both carry on while the
-/// app is in the background and survive Android recreating the page or activity. Pages only display it.
+/// Owns the recording and the transcript queue for the life of the process, so both carry on while the
+/// app is in the background and survive Android recreating the page or activity. Pages only display them.
+/// A new recording can start while earlier ones are still being transcribed.
 /// </summary>
 public sealed class SessionController
 {
-    private const int ReviewAlertId = 1002;
+    private const int NamesAlertId = 1002;
     private const int ResultAlertId = 1003;
 
+    private readonly Dictionary<string, JobState> _alerted = [];
     private MicRecorder? _recorder;
     private MicOption? _mic;
     private DateTimeOffset _startedAt;
@@ -28,14 +30,24 @@ public sealed class SessionController
     private string _title = "";
     private string _label = "";
     private bool _split;
-    private CancellationTokenSource? _processing;
-    private SessionRecording? _failed;
+    private int _voices;
+    private bool _started;
+    private string? _notice;
 
     private SessionController()
     {
+        Queue = new JobQueue(new JobStore(AppPaths.Recordings), () => new TranscriptionPipeline(LoadSettings()));
+        Queue.Changed += job => MainThread.BeginInvokeOnMainThread(() => OnJobChanged(job));
+        Queue.Removed += id => MainThread.BeginInvokeOnMainThread(() =>
+        {
+            JobRemoved?.Invoke(id);
+            UpdateService();
+        });
     }
 
     public static SessionController Instance { get; } = new();
+
+    public JobQueue Queue { get; }
 
     public SessionMode Mode { get; private set; }
 
@@ -46,17 +58,34 @@ public sealed class SessionController
     /// <summary>Raised on the main thread whenever <see cref="Mode"/> or <see cref="Status"/> changes.</summary>
     public event Action? Changed;
 
+    /// <summary>Raised on the main thread when a transcript is added or changes.</summary>
+    public event Action<TranscriptionJob>? JobChanged;
+
+    /// <summary>Raised on the main thread when a transcript leaves the list.</summary>
+    public event Action<string>? JobRemoved;
+
     public float ReadPeak() => _recorder?.ReadPeak() ?? 0f;
+
+    /// <summary>Loads saved transcripts and resumes any that were interrupted. Call from the foreground.</summary>
+    public void EnsureStarted()
+    {
+        if (_started) return;
+        _started = true;
+        Queue.Start();
+        foreach (var job in Queue.Jobs) _alerted[job.Id] = job.State;
+        UpdateService();
+    }
 
     public async Task StartAsync(MicOption mic, string title, string label, bool split)
     {
         if (Mode != SessionMode.Idle) return;
         (_mic, _title, _label, _split) = (mic, title, label, split);
+        _voices = split ? SettingsStore.Load().Speakers.ExpectedSpeakers : 0;
         _directory = Path.Combine(AppPaths.Recordings, DateTime.Now.ToString("yyyyMMdd-HHmmss"));
         Directory.CreateDirectory(_directory);
 
-        RecordingService.Show($"Recording from {mic.Name}", recording: true);
         Set(SessionMode.Recording, new SessionStatus(Tone.Busy, $"Starting {mic.Name}…"));
+        UpdateService();
         try
         {
             _recorder = await MicRecorder.StartAsync(mic, Path.Combine(_directory, "mic.wav"));
@@ -65,12 +94,11 @@ public sealed class SessionController
         }
         catch (Exception ex)
         {
-            RecordingService.Hide();
             Set(SessionMode.Idle, new SessionStatus(Tone.Error, "Couldn't start recording.", ex.Message));
+            UpdateService();
             return;
         }
 
-        _failed = null;
         Set(SessionMode.Recording, new SessionStatus(Tone.Busy, $"Recording from {mic.Name}…",
             "You can lock the phone or switch apps. Stop here or from the notification."));
     }
@@ -81,7 +109,6 @@ public sealed class SessionController
         if (Mode != SessionMode.Recording || _recorder is null) return;
         var recorder = _recorder;
         _recorder = null;
-        Set(SessionMode.Processing, new SessionStatus(Tone.Busy, "Finishing the recording…"));
         await recorder.StopAsync();
 
         var label = string.IsNullOrWhiteSpace(_label) ? (_split ? "Speaker" : "Me") : _label.Trim();
@@ -91,80 +118,85 @@ public sealed class SessionController
             recorder.Elapsed,
             _directory,
             [new RecordedSource(recorder.FilePath, label, SourceKind.Microphone, _split, _mic?.Name ?? "Microphone")]);
+        Queue.Enqueue(recording, _voices);
 
-        var warnings = recorder.Error is { } error ? new List<string> { $"The microphone stopped early: {error.Message}" } : [];
-        await TranscribeAsync(recording, warnings);
+        Set(SessionMode.Idle, recorder.Error is { } error
+            ? new SessionStatus(Tone.Warning, "The microphone stopped early.", $"What was recorded is being transcribed. {error.Message}")
+            : null);
+        UpdateService();
     }
 
-    public Task RetryAsync() =>
-        Mode == SessionMode.Idle && _failed is { } recording ? TranscribeAsync(recording, []) : Task.CompletedTask;
-
-    public void Cancel() => _processing?.Cancel();
-
-    private async Task TranscribeAsync(SessionRecording recording, IReadOnlyList<string> earlierWarnings)
+    private static AppSettings LoadSettings()
     {
-        RecordingService.Show("Transcribing…", recording: false);
-        RecordingService.CancelAlert(ResultAlertId);
-        Set(SessionMode.Processing, new SessionStatus(Tone.Busy, "Starting transcription…"));
-        _processing = new CancellationTokenSource();
-
         var settings = SettingsStore.Load();
-        settings.Speakers.Diarize = true; // the per-recording switch decides for the single phone mic
-        var pipeline = new TranscriptionPipeline(settings, ReviewSpeakersAsync);
-        var progress = new Progress<string>(m => Set(SessionMode.Processing, new SessionStatus(Tone.Busy, m)));
+        settings.Speakers.Diarize = true; // each recording's own switch decides for the single phone mic
+        return settings;
+    }
 
+    private void OnJobChanged(TranscriptionJob job)
+    {
+        JobChanged?.Invoke(job);
+        UpdateService();
+
+        // Alert once per change of state, and only when the user can't already see it.
+        if (_alerted.TryGetValue(job.Id, out var before) && before == job.State) return;
+        _alerted[job.Id] = job.State;
+        if (AppLifecycle.IsForeground) return;
+
+        switch (job.State)
+        {
+            case JobState.NeedsNames:
+                RecordingService.Alert(NamesAlertId, "Name the speakers",
+                    $"“{job.Title}” is transcribed. Tap to say who was speaking and save the note.");
+                break;
+            case JobState.Saved:
+                RecordingService.Alert(ResultAlertId, "Transcript saved", job.NoteDescription ?? job.Title);
+                break;
+            case JobState.Failed:
+                RecordingService.Alert(ResultAlertId, "Transcription failed", $"“{job.Title}”: open Transcriber to retry. The recording is kept.");
+                break;
+        }
+    }
+
+    /// <summary>Keeps the foreground service up while recording or while transcripts are being made.</summary>
+    private void UpdateService()
+    {
+        var jobs = Queue.Jobs;
+        int active = jobs.Count(j => j.IsActive);
+        string? text;
+        if (Mode == SessionMode.Recording)
+        {
+            text = $"Recording from {_mic?.Name}" + (active > 0 ? $" · {Transcripts(active)} in progress" : "");
+        }
+        else if (active > 0)
+        {
+            var current = jobs.FirstOrDefault(j => j.State is JobState.Transcribing or JobState.Saving);
+            text = current is null
+                ? $"{Transcripts(active)} waiting"
+                : $"Transcribing “{current.Title}”" + (active > 1 ? $" · {active - 1} more waiting" : "");
+        }
+        else
+        {
+            text = null;
+        }
+
+        var notice = text is null ? null : $"{Mode}:{text}";
+        if (notice == _notice) return;
+        _notice = notice;
         try
         {
-            var result = await Task.Run(() => pipeline.RunAsync(recording, progress, _processing.Token));
-            _failed = null;
-            var warnings = earlierWarnings.Concat(result.Warnings).ToList();
-            var text = result.UtteranceCount == 0 ? "No speech was found, but an empty note was saved." : $"Saved to {result.Note.Description}";
-            Set(SessionMode.Processing, new SessionStatus(warnings.Count > 0 ? Tone.Warning : Tone.Success, text, string.Join("\n", warnings)));
-            if (!AppLifecycle.IsForeground) RecordingService.Alert(ResultAlertId, "Transcript saved", result.Note.Description);
+            if (text is null) RecordingService.Hide();
+            else RecordingService.Show(text, recording: Mode == SessionMode.Recording);
         }
-        catch (OperationCanceledException)
+        catch (Exception)
         {
-            _failed = recording;
-            Set(SessionMode.Processing, new SessionStatus(Tone.Warning, "Transcription cancelled. The recording is kept on the phone.", CanRetry: true));
-        }
-        catch (Exception ex)
-        {
-            _failed = recording;
-            Set(SessionMode.Processing, new SessionStatus(Tone.Error, "Transcription failed. The recording is kept on the phone.", ex.Message, CanRetry: true));
-            if (!AppLifecycle.IsForeground) RecordingService.Alert(ResultAlertId, "Transcription failed", "Open Transcriber to retry. The recording is kept.");
-        }
-        finally
-        {
-            _processing.Dispose();
-            _processing = null;
-            RecordingService.CancelAlert(ReviewAlertId);
-            RecordingService.Hide();
-            Set(SessionMode.Idle, Status);
+            // Android won't start a foreground service from the background. The work carries on while
+            // the process lives, and resumes from disk if it doesn't.
+            _notice = null;
         }
     }
 
-    /// <summary>
-    /// Shows the naming page. Android can't show a page while the app is in the background, so if it is,
-    /// post a notification and wait until the user comes back.
-    /// </summary>
-    private Task<IReadOnlyDictionary<string, string>?> ReviewSpeakersAsync(IReadOnlyList<SpeakerSummary> speakers, CancellationToken ct) =>
-        MainThread.InvokeOnMainThreadAsync(async () =>
-        {
-            if (!AppLifecycle.IsForeground)
-            {
-                RecordingService.Show("Waiting for you to name the speakers", recording: false);
-                RecordingService.Alert(ReviewAlertId, "Name the speakers", "Tap to say who was speaking and save the note.");
-                await AppLifecycle.WaitForForegroundAsync(ct);
-                RecordingService.CancelAlert(ReviewAlertId);
-                RecordingService.Show("Transcribing…", recording: false);
-            }
-
-            var navigation = Application.Current?.Windows.FirstOrDefault()?.Page?.Navigation
-                ?? throw new InvalidOperationException("The app window isn't available to show the naming screen.");
-            var page = new SpeakerReviewPage(speakers);
-            await navigation.PushModalAsync(page);
-            return await page.Result;
-        });
+    private static string Transcripts(int n) => n == 1 ? "1 transcript" : $"{n} transcripts";
 
     private void Set(SessionMode mode, SessionStatus? status)
     {

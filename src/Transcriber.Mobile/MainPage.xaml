@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:Transcriber.Mobile"
              x:Class="Transcriber.Mobile.MainPage"
              Title="Transcriber">
 
@@ -53,11 +54,37 @@
                         <VerticalStackLayout Grid.Column="1" Spacing="4">
                             <Label x:Name="StatusText" />
                             <Label x:Name="StatusDetail" Style="{StaticResource Hint}" IsVisible="False" />
-                            <Button x:Name="RetryButton" Text="Retry" HorizontalOptions="Start" Margin="0,6,0,0"
-                                    IsVisible="False" Clicked="OnRetry" />
                         </VerticalStackLayout>
                     </Grid>
                 </Border>
+
+                <Label x:Name="JobsHeader" Style="{StaticResource Section}" Text="TRANSCRIPTS" IsVisible="False" />
+                <!-- BindableLayout rather than CollectionView, which doesn't size itself inside a ScrollView. -->
+                <VerticalStackLayout x:Name="JobList" Spacing="10">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="local:JobRow">
+                            <Border Style="{StaticResource Card}">
+                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="10">
+                                    <Label Text="{Binding Title}" FontFamily="OpenSansSemibold" LineBreakMode="TailTruncation" />
+                                    <ActivityIndicator Grid.Column="1" Grid.RowSpan="2" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
+                                                       WidthRequest="20" HeightRequest="20" VerticalOptions="Start" />
+                                    <Label Grid.Row="1" Text="{Binding Subtitle}" Style="{StaticResource Hint}" />
+                                    <Label Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding Detail}" Margin="0,6,0,0" FontSize="13" />
+                                    <FlexLayout Grid.Row="3" Grid.ColumnSpan="2" Wrap="Wrap" Margin="0,4,0,0">
+                                        <Button Text="Name speakers" Clicked="OnNameSpeakers" IsVisible="{Binding CanName}" Margin="0,6,8,0" />
+                                        <Button Text="Retry" Clicked="OnRetryJob" IsVisible="{Binding CanRetry}" Margin="0,6,8,0" />
+                                        <Button Text="Reprocess" Clicked="OnReprocessJob" IsVisible="{Binding CanReprocess}" Margin="0,6,8,0" />
+                                        <Button Text="Cancel" Clicked="OnCancelJob" IsVisible="{Binding CanCancel}" Margin="0,6,8,0"
+                                                BackgroundColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}"
+                                                TextColor="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource White}}" />
+                                        <Button Text="{Binding RemoveText}" Clicked="OnRemoveJob" IsVisible="{Binding CanRemove}" Margin="0,6,8,0"
+                                                BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+                                    </FlexLayout>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
             </VerticalStackLayout>
         </ScrollView>
 
@@ -65,10 +92,7 @@
         <Border Grid.Row="1" StrokeThickness="0" Padding="20,12,20,20"
                 BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray950}}">
             <VerticalStackLayout Spacing="10">
-                <Grid ColumnDefinitions="*,Auto">
-                    <Label x:Name="TimerLabel" Text="00:00:00" FontSize="28" FontFamily="OpenSansSemibold" VerticalOptions="Center" />
-                    <Button x:Name="CancelButton" Grid.Column="1" Text="Cancel" IsVisible="False" Clicked="OnCancel" />
-                </Grid>
+                <Label x:Name="TimerLabel" Text="00:00:00" FontSize="28" FontFamily="OpenSansSemibold" VerticalOptions="Center" />
                 <ProgressBar x:Name="LevelBar" Progress="0" IsVisible="False" />
                 <Button x:Name="RecordButton" Text="Start recording" HeightRequest="56" FontSize="17"
                         CornerRadius="28" Clicked="OnRecord" />

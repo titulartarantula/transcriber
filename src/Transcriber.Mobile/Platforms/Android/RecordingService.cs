@@ -9,8 +9,9 @@ namespace Transcriber.Mobile;
 /// <summary>
 /// Keeps the app alive with a notification while recording and transcribing, so the screen can turn
 /// off or you can switch apps mid-meeting. The notification's Stop button ends the recording.
+/// It runs as a microphone service while recording and as a data sync service while only transcribing.
 /// </summary>
-[Service(ForegroundServiceType = ForegroundService.TypeMicrophone, Exported = false)]
+[Service(ForegroundServiceType = ForegroundService.TypeMicrophone | ForegroundService.TypeDataSync, Exported = false)]
 public sealed class RecordingService : Service
 {
     private const int NotificationId = 1001;
@@ -22,6 +23,7 @@ public sealed class RecordingService : Service
 
     private static RecordingService? _running;
     private PowerManager.WakeLock? _wakeLock;
+    private bool _recording;
 
     /// <summary>
     /// Starts the foreground service, or updates its notification if it's already running. Updating in
@@ -82,12 +84,8 @@ public sealed class RecordingService : Service
 
         _running = this;
         EnsureChannels((NotificationManager)GetSystemService(NotificationService)!);
-        var notification = Build(intent?.GetStringExtra(TextExtra) ?? "Recording", intent?.GetBooleanExtra(RecordingExtra, false) ?? false);
-        // The microphone type exists from Android 11, which is also when background mic use became restricted.
-        if (OperatingSystem.IsAndroidVersionAtLeast(30))
-            StartForeground(NotificationId, notification, ForegroundService.TypeMicrophone);
-        else
-            StartForeground(NotificationId, notification);
+        _recording = intent?.GetBooleanExtra(RecordingExtra, false) ?? false;
+        Promote(Build(intent?.GetStringExtra(TextExtra) ?? "Recording", _recording));
 
         if (_wakeLock is null)
         {
@@ -110,8 +108,26 @@ public sealed class RecordingService : Service
 
     private void Post(string text, bool recording)
     {
+        var notification = Build(text, recording);
+        if (recording != _recording)
+        {
+            // Switching between recording and transcribing changes the service type, which only
+            // StartForeground can do.
+            _recording = recording;
+            Promote(notification);
+            return;
+        }
         var manager = (NotificationManager)GetSystemService(NotificationService)!;
-        manager.Notify(NotificationId, Build(text, recording));
+        manager.Notify(NotificationId, notification);
+    }
+
+    private void Promote(Notification notification)
+    {
+        // The microphone type exists from Android 11, which is also when background mic use became restricted.
+        var type = _recording && OperatingSystem.IsAndroidVersionAtLeast(30)
+            ? ForegroundService.TypeMicrophone
+            : ForegroundService.TypeDataSync;
+        StartForeground(NotificationId, notification, type);
     }
 
     private Notification Build(string text, bool recording)

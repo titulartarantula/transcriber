@@ -23,14 +23,15 @@ public partial class SpeakerReviewPage : ContentPage
     private readonly List<SpeakerRow> _rows;
     private readonly TaskCompletionSource<IReadOnlyDictionary<string, string>?> _result = new();
 
-    public SpeakerReviewPage(IReadOnlyList<SpeakerSummary> speakers)
+    public SpeakerReviewPage(IReadOnlyList<SpeakerSummary> speakers, string? recordingTitle = null)
     {
         InitializeComponent();
+        if (recordingTitle is not null) Heading.Text = $"Who was speaking in “{recordingTitle}”?";
         _rows = speakers.Select(s => new SpeakerRow(s)).ToList();
         Speakers.ItemsSource = _rows;
     }
 
-    /// <summary>Speaker → chosen name, or null to keep the automatic labels.</summary>
+    /// <summary>Speaker → chosen name; empty to keep the automatic labels; null if the user backed out to name them later.</summary>
     public Task<IReadOnlyDictionary<string, string>?> Result => _result.Task;
 
     private async void OnSave(object? sender, EventArgs e)
@@ -41,7 +42,7 @@ public partial class SpeakerReviewPage : ContentPage
         await Close(names);
     }
 
-    private async void OnKeep(object? sender, EventArgs e) => await Close(null);
+    private async void OnKeep(object? sender, EventArgs e) => await Close(new Dictionary<string, string>());
 
     protected override bool OnBackButtonPressed()
     {

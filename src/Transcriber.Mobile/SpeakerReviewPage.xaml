@@ -8,9 +8,9 @@
 
     <Grid RowDefinitions="Auto,*,Auto" Padding="20,16,20,20" RowSpacing="12">
         <VerticalStackLayout Spacing="4">
-            <Label Text="Who was speaking?" FontSize="22" FontFamily="OpenSansSemibold" />
+            <Label x:Name="Heading" Text="Who was speaking?" FontSize="22" FontFamily="OpenSansSemibold" />
             <Label Style="{StaticResource Hint}"
-                   Text="Name each speaker, or leave a box empty to keep the label. Giving two speakers the same name merges them." />
+                   Text="Name each speaker, or leave a box empty to keep the label. Giving two speakers the same name merges them. Go back to name them later." />
         </VerticalStackLayout>
 
         <CollectionView x:Name="Speakers" Grid.Row="1">

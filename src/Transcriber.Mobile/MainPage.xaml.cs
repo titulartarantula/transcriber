@@ -1,11 +1,13 @@
+using System.Collections.ObjectModel;
+using Transcriber.Core.Jobs;
 using Transcriber.Core.Output;
 using Transcriber.Core.Settings;
 
 namespace Transcriber.Mobile;
 
 /// <summary>
-/// Microphone and speaker choices plus a view of the <see cref="SessionController"/>. The page holds no
-/// recording state, so Android can destroy and recreate it mid-recording without losing anything.
+/// Microphone and speaker choices plus a view of the <see cref="SessionController"/> and its transcripts.
+/// The page holds no recording state, so Android can destroy and recreate it mid-recording without losing anything.
 /// </summary>
 public partial class MainPage : ContentPage
 {
@@ -16,6 +18,7 @@ public partial class MainPage : ContentPage
 
     private readonly SessionController _session = SessionController.Instance;
     private readonly IDispatcherTimer _timer;
+    private readonly ObservableCollection<JobRow> _jobs = [];
     private AppSettings _settings = SettingsStore.Load();
     private IReadOnlyList<MicOption> _mics = [];
     private MicOption? _mic;
@@ -27,6 +30,7 @@ public partial class MainPage : ContentPage
         VoicesPicker.ItemsSource = VoiceChoices;
         LabelEntry.Text = Preferences.Get(LabelPref, "");
         SplitSwitch.IsToggled = Preferences.Get(SplitPref, true);
+        BindableLayout.SetItemsSource(JobList, _jobs);
 
         _timer = Dispatcher.CreateTimer();
         _timer.Interval = TimeSpan.FromMilliseconds(100);
@@ -42,7 +46,12 @@ public partial class MainPage : ContentPage
         OnSplitToggled(this, new ToggledEventArgs(SplitSwitch.IsToggled));
 
         _deviceWatch ??= MicDevices.Watch(LoadMics);
+        _session.EnsureStarted();
         _session.Changed += Render;
+        _session.JobChanged += ShowJob;
+        _session.JobRemoved += HideJob;
+        _jobs.Clear();
+        foreach (var job in _session.Queue.Jobs) ShowJob(job);
         _timer.Start();
         Render();
 
@@ -59,6 +68,8 @@ public partial class MainPage : ContentPage
     {
         base.OnDisappearing();
         _session.Changed -= Render;
+        _session.JobChanged -= ShowJob;
+        _session.JobRemoved -= HideJob;
         _timer.Stop();
     }
 
@@ -145,14 +156,63 @@ public partial class MainPage : ContentPage
         if (_session.Mode == SessionMode.Recording) TitleEntry.Text = "";
     }
 
-    private async void OnRetry(object? sender, EventArgs e) => await _session.RetryAsync();
-
-    private void OnCancel(object? sender, EventArgs e) => _session.Cancel();
-
     private async void OnSettings(object? sender, EventArgs e)
     {
         if (_session.Mode != SessionMode.Idle) return;
         await Navigation.PushAsync(new SettingsPage());
+    }
+
+    // ----- Transcripts ---------------------------------------------------------------------
+
+    private void ShowJob(TranscriptionJob job)
+    {
+        if (_jobs.FirstOrDefault(j => j.Id == job.Id) is { } row)
+        {
+            row.Job = job;
+        }
+        else
+        {
+            // Newest first, the same order the queue lists them in.
+            int at = _jobs.TakeWhile(j => j.Job.CreatedAt > job.CreatedAt).Count();
+            _jobs.Insert(at, new JobRow(job));
+        }
+        JobsHeader.IsVisible = true;
+    }
+
+    private void HideJob(string id)
+    {
+        if (_jobs.FirstOrDefault(j => j.Id == id) is { } row) _jobs.Remove(row);
+        JobsHeader.IsVisible = _jobs.Count > 0;
+    }
+
+    private static JobRow RowOf(object? sender) => (JobRow)((BindableObject)sender!).BindingContext;
+
+    private async void OnNameSpeakers(object? sender, EventArgs e)
+    {
+        var row = RowOf(sender);
+        if (_session.Queue.GetSummaries(row.Id) is not { } speakers) return;
+
+        var page = new SpeakerReviewPage(speakers, row.Title);
+        await Navigation.PushModalAsync(page);
+        // Backing out leaves the transcript waiting, to be named later.
+        if (await page.Result is { } names)
+            await Task.Run(() => _session.Queue.SubmitNamesAsync(row.Id, names));
+    }
+
+    private void OnRetryJob(object? sender, EventArgs e) => _session.Queue.Retry(RowOf(sender).Id);
+
+    private void OnReprocessJob(object? sender, EventArgs e) => _session.Queue.Reprocess(RowOf(sender).Id);
+
+    private void OnCancelJob(object? sender, EventArgs e) => _session.Queue.Cancel(RowOf(sender).Id);
+
+    private async void OnRemoveJob(object? sender, EventArgs e)
+    {
+        var row = RowOf(sender);
+        if (row.Job.RemoveDeletesAudio && !await DisplayAlertAsync("Delete recording?",
+                $"The audio of “{row.Title}” will be deleted and can't be recovered. Notes already saved are not affected.",
+                "Delete", "Keep"))
+            return;
+        _session.Queue.Remove(row.Id);
     }
 
     // ----- Rendering -----------------------------------------------------------------------
@@ -166,17 +226,10 @@ public partial class MainPage : ContentPage
         VoicesPicker.IsEnabled = idle && SplitSwitch.IsToggled;
         LabelEntry.IsEnabled = idle;
         TitleEntry.IsEnabled = idle;
-        CancelButton.IsVisible = mode == SessionMode.Processing;
-        LevelBar.IsVisible = mode == SessionMode.Recording;
+        LevelBar.IsVisible = !idle;
 
-        RecordButton.IsEnabled = mode != SessionMode.Processing;
-        RecordButton.Text = mode switch
-        {
-            SessionMode.Recording => "Stop and transcribe",
-            SessionMode.Processing => "Transcribing…",
-            _ => "Start recording",
-        };
-        RecordButton.BackgroundColor = mode == SessionMode.Recording ? Color.FromArgb("#DC2626") : Accent;
+        RecordButton.Text = idle ? "Start recording" : "Stop and transcribe";
+        RecordButton.BackgroundColor = idle ? Accent : Color.FromArgb("#DC2626");
 
         if (idle)
         {
@@ -185,6 +238,7 @@ public partial class MainPage : ContentPage
             LoadMics();
         }
         if (_session.Status is { } status) ShowStatus(status);
+        else StatusCard.IsVisible = false;
     }
 
     private static Color Accent =>
@@ -205,6 +259,5 @@ public partial class MainPage : ContentPage
             Tone.Error => ("✕", Color.FromArgb("#DC2626")),
             _ => ("", Colors.Gray),
         };
-        RetryButton.IsVisible = status.CanRetry && _session.Mode == SessionMode.Idle;
     }
 }

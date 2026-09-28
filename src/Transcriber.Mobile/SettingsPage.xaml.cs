@@ -27,6 +27,7 @@ public partial class SettingsPage : ContentPage
 
         Threshold.Value = s.Speakers.ClusterThreshold;
         ReviewNames.IsToggled = s.Speakers.ReviewNames;
+        UseServer.IsToggled = s.Speakers.UseServer;
 
         McpUrl.Text = s.Output.McpUrl;
         RestUrl.Text = s.Output.ObsidianUrl;
@@ -37,6 +38,7 @@ public partial class SettingsPage : ContentPage
         FileNameTemplate.Text = s.Output.FileNameTemplate;
         Tags.Text = s.Output.Tags;
         LinkSpeakers.IsToggled = s.Output.LinkSpeakers;
+        KeepAudio.IsToggled = s.Output.KeepAudio;
 
         (s.Output.Destination switch
         {
@@ -71,6 +73,7 @@ public partial class SettingsPage : ContentPage
 
         s.Speakers.ClusterThreshold = (float)Math.Round(Threshold.Value, 2);
         s.Speakers.ReviewNames = ReviewNames.IsToggled;
+        s.Speakers.UseServer = UseServer.IsToggled;
 
         s.Output.Destination = ToMcp.IsChecked ? OutputKind.ObsidianMcp : ToRest.IsChecked ? OutputKind.Obsidian : OutputKind.MarkdownFolder;
         s.Output.McpUrl = McpUrl.Text?.Trim() ?? "";
@@ -81,6 +84,7 @@ public partial class SettingsPage : ContentPage
         s.Output.FileNameTemplate = FileNameTemplate.Text?.Trim() ?? "";
         s.Output.Tags = Tags.Text?.Trim() ?? "";
         s.Output.LinkSpeakers = LinkSpeakers.IsToggled;
+        s.Output.KeepAudio = KeepAudio.IsToggled;
     }
 
     private async void OnSave(object? sender, EventArgs e)
@@ -105,7 +109,10 @@ public partial class SettingsPage : ContentPage
         {
             using var client = new WhisperClient(_settings.Stt);
             var models = await client.ListModelsAsync();
-            Show(SttResult, $"Connected. {models.Count} models available.");
+            var voices = await client.SupportsDiarizationAsync()
+                ? "It separates voices itself."
+                : "It doesn't separate voices, so the phone will.";
+            Show(SttResult, $"Connected. {models.Count} models available. {voices}");
             if (models.Count == 0) return;
 
             // Common general-purpose models first; the full catalogue can run to hundreds.
