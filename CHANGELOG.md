@@ -26,6 +26,8 @@ its release and uses them as the GitHub release notes.
 
 ### Android
 
+## Android 0.3.0 - 2026-09-29
+
 - Recording is never blocked by transcription. Stopping a recording queues it, and a **Transcripts** list
   shows each one's progress with Name speakers, Cancel, Retry, Reprocess and Delete.
 - A transcript waiting for speaker names no longer holds up the next one. A notification says when one is
