@@ -13,29 +13,22 @@ Play Console → **Create app**
 The package name is claimed by the first upload: `dev.transcriber.app`. No public app uses it. If Play says
 it's taken, stop there: changing it means a new app that can't update the one on your phone.
 
-## 2. App signing: keep the key your phone's copy already uses
+## 2. App signing: let Google hold the key
 
-Play re-signs what it delivers. By default it generates a new key, and then **the Play version can't install
-over the sideloaded one**. You'd have to uninstall first, losing settings, sign-ins and kept recordings.
-Give Play the existing release key instead:
+When Play asks at the first release, keep the default: **Google generates and manages the app signing
+key**. Play signs what it delivers with that key. Your release keystore
+(`%APPDATA%\TranscriberSigning\transcriber-release.keystore`) becomes the **upload key**, which only proves
+to Play that an upload came from you. `scripts/release.ps1` signs every `.aab` with it and checks that.
 
-1. **Test and release → App integrity → App signing**, or the prompt when you create the first release:
-   choose **Use a different key → Export and upload a key from Java keystore**.
-2. Download **pepk.jar** and the **encryption public key** it offers, into `artifacts\play\`.
-3. Run this, and upload the `transcriber-signing-key.zip` it makes (asks for the keystore password):
+Keep the keystore and its password backed up. If it's lost, Play can reset the upload key after an
+identity check, but it's slower than not losing it.
 
-   ```powershell
-   $jdk = 'C:\Program Files\Android\openjdk\jdk-21.0.8'
-   & "$jdk\bin\java.exe" -jar artifacts\play\pepk.jar `
-       --keystore="$env:APPDATA\TranscriberSigning\transcriber-release.keystore" --alias=transcriber `
-       --output=artifacts\play\transcriber-signing-key.zip --include-cert --rsa-aes-encryption `
-       --encryption-key-path=artifacts\play\encryption_public_key.pem
-   ```
-
-   The key never leaves the machine unencrypted. The zip is readable only by Google.
-
-The same key also signs the bundles you upload (the "upload key"). `scripts/release.ps1` checks that every
-`.aab` it builds is signed with it.
+What this means:
+- **Play installs and the GitHub APKs are signed with different keys**, so one can't update the other.
+  Switching between them means uninstalling first, which loses settings (server address, Obsidian sign-ins
+  and keys) and any kept recordings.
+- The first move to Play is one of those switches: note your settings, then uninstall the sideloaded copy
+  before installing from Play.
 
 ## 3. Build and upload
 
@@ -49,8 +42,8 @@ Or `-DryRun` to build without releasing. The bundle is `artifacts\Transcriber-an
 - **Testers** tab: create a list with your Google account and save. Copy the **opt-in link**.
 - **Create new release** → upload the `.aab` → release notes (the CHANGELOG entries) → **Save → Review →
   Start rollout**.
-- On the phone, open the opt-in link, accept, then install from Play. The first time, uninstall the
-  sideloaded copy only if Play refuses to install over it (it won't, if step 2 was done).
+- On the phone, uninstall the sideloaded copy (see step 2), then open the opt-in link, accept, and install
+  from Play. Updates arrive from Play from then on.
 
 ## 4. App content (Policy → App content)
 
