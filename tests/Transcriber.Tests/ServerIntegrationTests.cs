@@ -1,3 +1,5 @@
+using NAudio.Wave;
+using Transcriber.Core.Audio;
 using Transcriber.Core.Output;
 using Transcriber.Core.Pipeline;
 using Transcriber.Core.Settings;
@@ -8,7 +10,8 @@ namespace Transcriber.Tests;
 
 /// <summary>
 /// End-to-end run against a real STT server. Set TRANSCRIBER_STT_URL and TRANSCRIBER_TEST_AUDIO
-/// (a WAV with more than one speaker) to enable; otherwise the test passes without doing anything.
+/// (an audio file with more than one speaker: WAV, M4A, AAC, MP3, ...) to enable; otherwise the test
+/// passes without doing anything.
 /// TRANSCRIBER_USE_SERVER=0 separates voices on this PC even if the server could.
 /// </summary>
 public class ServerIntegrationTests(ITestOutputHelper output)
@@ -30,6 +33,7 @@ public class ServerIntegrationTests(ITestOutputHelper output)
         var threshold = Environment.GetEnvironmentVariable("TRANSCRIBER_THRESHOLD");
         if (threshold is not null) settings.Speakers.ClusterThreshold = float.Parse(threshold);
 
+        AudioConvert.ExternalDecoder ??= path => new AudioFileReader(path); // as the Windows app does, for m4a, aac, mp3
         var recording = TranscriptionPipeline.FromFile(audio, "Speaker", diarize: true);
         var progress = new Progress<string>(m => output.WriteLine(m));
         var pipeline = new TranscriptionPipeline(settings);
