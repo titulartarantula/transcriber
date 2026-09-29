@@ -38,6 +38,9 @@ its release and uses them as the GitHub release notes.
   hour), and sends that file to the server, which also cuts mobile data. A crash still leaves a playable
   file.
 - While only transcribing, the background service runs as a data sync service rather than a microphone one.
+- **Allow running in background** became **Open battery settings**, which opens Transcriber's App info
+  page (Battery → Unrestricted). The app no longer asks for the permission behind the one-tap prompt, which
+  Google Play restricts.
 
 ## Windows 0.1.1 - 2026-09-26
 

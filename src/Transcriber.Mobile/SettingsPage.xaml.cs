@@ -59,7 +59,7 @@ public partial class SettingsPage : ContentPage
         BatteryButton.IsVisible = !exempt;
     }
 
-    private void OnBattery(object? sender, EventArgs e) => BatteryOptimization.RequestExemption();
+    private void OnBattery(object? sender, EventArgs e) => BatteryOptimization.OpenSettings();
 
     private void Apply()
     {

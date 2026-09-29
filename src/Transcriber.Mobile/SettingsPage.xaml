@@ -47,8 +47,8 @@
                 <VerticalStackLayout>
                     <Label x:Name="BatteryStatus" />
                     <Label Style="{StaticResource Hint}" Margin="0,4,0,0"
-                           Text="Recording keeps going with the screen off or in other apps. Some phones (Samsung, Xiaomi, OnePlus…) still stop background apps unless battery optimization is off for Transcriber." />
-                    <Button x:Name="BatteryButton" Text="Allow running in background" Margin="0,10,0,0" Clicked="OnBattery" />
+                           Text="Recording keeps going with the screen off or in other apps. Some phones (Samsung, Xiaomi, OnePlus…) still stop background apps unless battery optimization is off for Transcriber: in its settings, open Battery and choose Unrestricted." />
+                    <Button x:Name="BatteryButton" Text="Open battery settings" Margin="0,10,0,0" Clicked="OnBattery" />
                 </VerticalStackLayout>
             </Border>
 

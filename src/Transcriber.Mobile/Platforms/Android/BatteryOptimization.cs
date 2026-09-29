@@ -19,10 +19,14 @@ public static class BatteryOptimization
         }
     }
 
-    /// <summary>Shows Android's "Let app always run in background?" prompt.</summary>
-    public static void RequestExemption()
+    /// <summary>
+    /// Opens Transcriber's page in Android settings, where Battery → Unrestricted lifts the limit. The
+    /// one-tap "Let app always run in background?" prompt would need REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+    /// which Google Play only allows for a few kinds of app.
+    /// </summary>
+    public static void OpenSettings()
     {
-        var intent = new Intent(Settings.ActionRequestIgnoreBatteryOptimizations,
+        var intent = new Intent(Settings.ActionApplicationDetailsSettings,
             global::Android.Net.Uri.Parse("package:" + Platform.AppContext.PackageName));
         try
         {
@@ -30,7 +34,6 @@ public static class BatteryOptimization
         }
         catch (ActivityNotFoundException)
         {
-            // Some builds hide the direct prompt; fall back to the full list.
             Platform.CurrentActivity!.StartActivity(new Intent(Settings.ActionIgnoreBatteryOptimizationSettings));
         }
     }

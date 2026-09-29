@@ -9,7 +9,8 @@
     3. Bumps the app's version in Versions.props and moves its Unreleased entries in CHANGELOG.md into
        a new release section, then commits "Release Transcriber for <App> <version>".
     4. Builds the artifact (Windows: self-contained exe; Android: APK signed with the release key) and
-       checks the version (and, for Android, the signing certificate) inside it.
+       checks the version (and, for Android, the signing certificate) inside it. Android also gets an
+       App Bundle (.aab) for Google Play, signed with the same key as its upload key.
     5. Tags <app>-v<version>, pushes the commit and tag together, and creates a GitHub release with the
        artifact attached and the changelog entries as notes.
 
@@ -200,6 +201,40 @@ function Build-Android([string]$New) {
     return $artifact
 }
 
+# Google Play takes an App Bundle, not an APK. It carries both ABIs (phones and x86_64 Chromebooks/emulators);
+# Play hands each device only what it needs. Signed with the release key, which Play uses as the upload key.
+function Build-AndroidBundle([string]$New) {
+    $dotnet10 = Find-Dotnet10
+    $sdk = Find-AndroidSdk
+    $jdk = Find-Jdk
+    $signing = Get-SigningPaths
+    $env:TRANSCRIBER_SIGNING_PASSWORD = Read-SigningPassword
+
+    $out = Join-Path $root "artifacts\android-$New-bundle"
+    Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
+    Invoke-Checked $dotnet10 @(
+        'publish', (Join-Path $root 'src\Transcriber.Mobile'), '-c', 'Release', '-f', 'net10.0-android',
+        '-p:AndroidPackageFormat=aab', "-p:AndroidVersion=$New", "-p:AndroidSdkDirectory=$sdk", "-p:JavaSdkDirectory=$jdk",
+        '-p:AndroidKeyStore=true', "-p:AndroidSigningKeyStore=$($signing.Keystore)", "-p:AndroidSigningKeyAlias=$($signing.Alias)",
+        '-p:AndroidSigningStorePass=env:TRANSCRIBER_SIGNING_PASSWORD', '-p:AndroidSigningKeyPass=env:TRANSCRIBER_SIGNING_PASSWORD',
+        '-o', $out, '--nologo', '-v', 'q')
+
+    $aab = Get-ChildItem $out -Filter '*-Signed.aab' | Select-Object -First 1
+    if (-not $aab) { throw "No signed App Bundle was produced in $out." }
+    $bundle = Join-Path $root "artifacts\Transcriber-android-$New.aab"
+    Copy-Item $aab.FullName $bundle -Force
+
+    # Play rejects a bundle signed with anything but the registered upload key, so check before it gets that far.
+    $bundleSha = ((& (Join-Path $jdk 'bin\keytool.exe') -printcert -jarfile $bundle | Select-String 'SHA256:' | Select-Object -First 1).ToString() `
+        -replace '.*SHA256:\s*', '' -replace ':', '').ToLowerInvariant()
+    $keySha = ((& (Join-Path $jdk 'bin\keytool.exe') -list -v -keystore $signing.Keystore -storepass $env:TRANSCRIBER_SIGNING_PASSWORD `
+        -alias $signing.Alias | Select-String 'SHA256:').ToString() -replace '.*SHA256:\s*', '' -replace ':', '').ToLowerInvariant()
+    if (-not $bundleSha -or $bundleSha -ne $keySha) { throw "The App Bundle isn't signed with the release key (bundle $bundleSha, key $keySha)." }
+
+    Write-Host "    $bundle (for Google Play, release key)"
+    return $bundle
+}
+
 # ----- Release -----------------------------------------------------------------------------
 
 Push-Location $root
@@ -248,6 +283,7 @@ try {
 
     Step 'Building'
     $artifact = if ($App -eq 'windows') { Build-Windows $new } else { Build-Android $new }
+    $bundle = if ($App -eq 'android') { Build-AndroidBundle $new } else { $null }
 
     if ($DryRun) {
         Write-Host "Dry run complete: $artifact. Nothing was committed, tagged or published." -ForegroundColor Green
@@ -268,6 +304,7 @@ try {
         exit 1
     }
     Write-Host "Released $title" -ForegroundColor Green
+    if ($bundle) { Write-Host "Upload $bundle to the Play Console (Testing → Internal testing → Create new release)." }
 }
 catch {
     if ($committed) {
