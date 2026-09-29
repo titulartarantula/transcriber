@@ -1,4 +1,5 @@
 using NAudio.Wave;
+using Transcriber.Audio.Windows;
 using Transcriber.Core.Audio;
 using Transcriber.Core.Output;
 using Transcriber.Core.Pipeline;
@@ -33,7 +34,9 @@ public class ServerIntegrationTests(ITestOutputHelper output)
         var threshold = Environment.GetEnvironmentVariable("TRANSCRIBER_THRESHOLD");
         if (threshold is not null) settings.Speakers.ClusterThreshold = float.Parse(threshold);
 
-        AudioConvert.ExternalDecoder ??= path => new AudioFileReader(path); // as the Windows app does, for m4a, aac, mp3
+        // As the Windows app does: decode m4a, aac, mp3; compress anything bigger than 16 kHz WAV to AAC.
+        AudioConvert.ExternalDecoder ??= path => new AudioFileReader(path);
+        AudioConvert.Encoder ??= AacEncoder.Encode;
         var recording = TranscriptionPipeline.FromFile(audio, "Speaker", diarize: true);
         var progress = new Progress<string>(m => output.WriteLine(m));
         var pipeline = new TranscriptionPipeline(settings);

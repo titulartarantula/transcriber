@@ -192,7 +192,7 @@
                         <ui:ToggleSwitch x:Name="KeepAudio" Margin="0,10,0,0"
                                          Content="Keep the audio after the note is saved, so it can be reprocessed" />
                         <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap"
-                                   Text="Kept as 16 kHz mono, about 115 MB per hour per source, in %LOCALAPPDATA%\Transcriber\recordings. Delete recordings from the transcript list." />
+                                   Text="Kept as AAC, about 43 MB per hour per source, in %LOCALAPPDATA%\Transcriber\recordings. Delete recordings from the transcript list." />
                     </StackPanel>
                 </ui:Card>
             </StackPanel>

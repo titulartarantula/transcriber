@@ -20,6 +20,9 @@ its release and uses them as the GitHub release notes.
   reprocessed with different settings later.
 - Each transcript shows how long transcription and voice separation took, and where voices were separated.
 - Recordings with no voices to tell apart are saved without stopping for the naming dialog.
+- Recordings are compressed to AAC (48 kHz mono, 96 kbps, about 43 MB an hour) before they're sent to the
+  server and kept, instead of WAV (up to about 1.4 GB an hour while recording). Imported m4a, aac and mp3
+  files that are already small are sent as they are.
 
 ### Android
 
@@ -31,6 +34,9 @@ its release and uses them as the GitHub release notes.
 - Speaker separation runs on the Whisper server when it offers `/v1/audio/diarization`, which is faster
   and easier on the battery. Otherwise it runs on the phone as before.
 - New setting **Keep audio to reprocess later**.
+- Records straight to AAC (16 kHz mono, 48 kbps, about 21 MB an hour) instead of WAV (about 115 MB an
+  hour), and sends that file to the server, which also cuts mobile data. A crash still leaves a playable
+  file.
 - While only transcribing, the background service runs as a data sync service rather than a microphone one.
 
 ## Windows 0.1.1 - 2026-09-26

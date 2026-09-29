@@ -286,7 +286,7 @@ public sealed class JobQueue : IDisposable
 
             if (runner.Settings.Output.KeepAudio || job.AudioKept)
             {
-                saved = KeepOnly16k(saved) with { AudioKept = true };
+                saved = KeepOnlyCompact(saved) with { AudioKept = true };
                 Quietly(() => _store.DeleteDraft(saved));
                 Update(id, _ => saved);
             }
@@ -311,20 +311,27 @@ public sealed class JobQueue : IDisposable
     }
 
     /// <summary>
-    /// Points each source at its 16 kHz copy, which is all a reprocess needs, and deletes the original
-    /// capture when it's one of ours. Imported files are never touched.
+    /// Points each source at its compact copy (see <see cref="TranscriptionPipeline.CompactCopy"/>), which
+    /// is all a reprocess needs, and deletes the original capture when it's one of ours. An imported file
+    /// that was compact already is copied in, so the job doesn't depend on it staying where it was.
     /// </summary>
-    private static TranscriptionJob KeepOnly16k(TranscriptionJob job)
+    private static TranscriptionJob KeepOnlyCompact(TranscriptionJob job)
     {
         var directory = job.Recording.Directory;
         var kept = new List<RecordedSource>();
         foreach (var source in job.Recording.Sources)
         {
-            var wav16 = TranscriptionPipeline.Wav16Path(directory, source.FilePath);
-            bool isCopy = TranscriptionPipeline.SamePath(wav16, source.FilePath);
-            if (!isCopy && IsInside(source.FilePath, directory)) Quietly(() => File.Delete(source.FilePath));
+            var keep = TranscriptionPipeline.CompactCopy(directory, source.FilePath);
+            if (keep is not null && !IsInside(keep, directory))
+            {
+                var copy = Path.Combine(directory, Path.GetFileName(keep));
+                Quietly(() => File.Copy(keep, copy, overwrite: true));
+                keep = File.Exists(copy) ? copy : null;
+            }
+            if (IsInside(source.FilePath, directory) && (keep is null || !TranscriptionPipeline.SamePath(keep, source.FilePath)))
+                Quietly(() => File.Delete(source.FilePath));
             // A silent source never got a copy; there's nothing to reprocess for it.
-            if (File.Exists(wav16)) kept.Add(source with { FilePath = wav16 });
+            if (keep is not null) kept.Add(source with { FilePath = keep });
         }
         return job with { Recording = job.Recording with { Sources = kept } };
     }

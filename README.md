@@ -36,7 +36,8 @@ your Obsidian vault.
   next meeting straight away. The **Transcripts** list shows each one as it goes: waiting, transcribing,
   needs names, saved. A transcript waiting for names doesn't hold up the ones behind it. Unfinished work
   survives closing the app and resumes next time.
-- **Keeps audio if you want.** With **Keep the audio** on (Settings → Output), each recording's 16 kHz copy
+- **Keeps audio if you want.** Recordings are compressed to AAC before they're sent to the server (48 kHz
+  mono, 96 kbps, about 43 MB an hour per source). With **Keep the audio** on (Settings → Output), that file
   stays after the note is saved, and **Reprocess** runs it again with whatever model and speaker settings
   you have then.
 - **Transcribe a file…** runs an existing recording through the same pipeline.
@@ -135,6 +136,8 @@ naming, Markdown and Obsidian outputs.
   transcript waits in the list for you to name its speakers. A notification tells you when one is ready.
 - **Background recording:** a notification keeps recording and transcription running with the screen off
   or while you use other apps. You can start a new recording while earlier ones are still transcribing.
+- **Compact recordings:** audio is recorded straight to AAC (16 kHz mono, 48 kbps, about 21 MB an hour) and
+  sent to the server as it is. If the app is killed mid-recording, the file still plays up to that point.
 - **Outputs:** Obsidian through an MCP server, the Local REST API over LAN/WireGuard (with the same
   certificate pinning), or a folder on the phone picked with Android's folder picker, for example the vault
   folder Obsidian mobile or Syncthing uses.

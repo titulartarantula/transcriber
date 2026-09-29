@@ -1,13 +1,13 @@
 using Android.Content;
 using Android.Media;
-using NAudio.Wave;
 using Encoding = Android.Media.Encoding;
 
 namespace Transcriber.Mobile;
 
 /// <summary>
-/// Records one input to a 16 kHz mono 16-bit WAV, the format Whisper and the diarizer use, so nothing
-/// needs converting afterwards. Bluetooth headsets are routed over their voice (SCO/LE) link first.
+/// Records one input at 16 kHz mono, the rate Whisper and the diarizer use, compressed to AAC as it goes
+/// (~21 MB an hour rather than ~115 MB as WAV). The file is sent to the server as it is. Bluetooth
+/// headsets are routed over their voice (SCO/LE) link first.
 /// </summary>
 public sealed class MicRecorder
 {
@@ -16,7 +16,7 @@ public sealed class MicRecorder
     private readonly AudioManager _audio = (AudioManager)Platform.AppContext.GetSystemService(Context.AudioService)!;
     private readonly string _path;
     private AudioRecord? _record;
-    private WaveFileWriter? _writer;
+    private AdtsAacWriter? _writer;
     private Thread? _thread;
     private volatile bool _running;
     private volatile float _peak;
@@ -62,7 +62,15 @@ public sealed class MicRecorder
         _running = false;
         try { _record?.Stop(); } catch (Java.Lang.IllegalStateException) { }
         if (_thread is not null) await Task.Run(() => _thread.Join(TimeSpan.FromSeconds(3)));
-        _writer?.Dispose();
+        try
+        {
+            _writer?.Dispose();
+        }
+        catch (Java.Lang.Exception e)
+        {
+            // The frames already written are still a playable file.
+            Error ??= new IOException($"Finishing the recording failed: {e.Message}");
+        }
         _writer = null;
         _record?.Release();
         _record = null;
@@ -82,7 +90,7 @@ public sealed class MicRecorder
             throw new InvalidOperationException("The microphone couldn't be opened. Another app may be using it.");
         if (MicDevices.Find(mic.DeviceId) is { } device) _record.SetPreferredDevice(device);
 
-        _writer = new WaveFileWriter(_path, new WaveFormat(SampleRate, 16, 1));
+        _writer = new AdtsAacWriter(_path, SampleRate);
         _record.StartRecording();
         if (_record.RecordingState != RecordState.Recording)
             throw new InvalidOperationException("The microphone didn't start. Another app may be using it.");
@@ -106,14 +114,14 @@ public sealed class MicRecorder
                 if (n == 0) continue;
 
                 Buffer.BlockCopy(samples, 0, bytes, 0, n * 2);
-                _writer!.Write(bytes, 0, n * 2);
+                _writer!.Write(bytes, n * 2);
 
                 int peak = 0;
                 for (int i = 0; i < n; i++) peak = Math.Max(peak, Math.Abs((int)samples[i]));
                 _peak = Math.Max(_peak, peak / 32768f);
 
                 long total = Interlocked.Add(ref _frames, n);
-                // Keep the WAV header current so a crash still leaves a playable file.
+                // Get it onto storage regularly, so a crash loses at most the last few seconds.
                 if (total - lastFlush >= SampleRate * 10)
                 {
                     _writer.Flush();

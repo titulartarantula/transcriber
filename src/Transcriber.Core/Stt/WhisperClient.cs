@@ -58,10 +58,10 @@ public sealed class WhisperClient : IDisposable
     /// <summary>Speaker turns from the server's diarization endpoint.</summary>
     /// <param name="expectedSpeakers">Known speaker count, or 0 to let the server estimate it.</param>
     /// <exception cref="DiarizationUnsupportedException">The server has no diarization endpoint.</exception>
-    public async Task<IReadOnlyList<SpeakerTurn>> DiarizeAsync(string wavPath, int expectedSpeakers, CancellationToken ct = default)
+    public async Task<IReadOnlyList<SpeakerTurn>> DiarizeAsync(string audioPath, int expectedSpeakers, CancellationToken ct = default)
     {
         using var form = new MultipartFormDataContent();
-        form.Add(WavContent(wavPath), "file", Path.GetFileName(wavPath));
+        form.Add(AudioContent(audioPath), "file", Path.GetFileName(audioPath));
         if (expectedSpeakers > 0) form.Add(new StringContent(expectedSpeakers.ToString()), "num_speakers");
 
         using var response = await PostAsync("v1/audio/diarization", form, ct);
@@ -74,10 +74,10 @@ public sealed class WhisperClient : IDisposable
         return result.Segments.Select(s => new SpeakerTurn(s.Start, s.End, s.Speaker)).OrderBy(t => t.Start).ToList();
     }
 
-    public async Task<WhisperResult> TranscribeAsync(string wavPath, CancellationToken ct = default)
+    public async Task<WhisperResult> TranscribeAsync(string audioPath, CancellationToken ct = default)
     {
         using var form = new MultipartFormDataContent();
-        form.Add(WavContent(wavPath), "file", Path.GetFileName(wavPath));
+        form.Add(AudioContent(audioPath), "file", Path.GetFileName(audioPath));
         form.Add(new StringContent(_settings.Model), "model");
         form.Add(new StringContent("verbose_json"), "response_format");
         form.Add(new StringContent("word"), "timestamp_granularities[]");
@@ -93,10 +93,18 @@ public sealed class WhisperClient : IDisposable
             ?? throw new SttException("The STT server returned an empty response.");
     }
 
-    private static StreamContent WavContent(string wavPath)
+    private static StreamContent AudioContent(string audioPath)
     {
-        var file = new StreamContent(File.OpenRead(wavPath));
-        file.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
+        var file = new StreamContent(File.OpenRead(audioPath));
+        file.Headers.ContentType = new MediaTypeHeaderValue(Path.GetExtension(audioPath).ToLowerInvariant() switch
+        {
+            ".wav" => "audio/wav",
+            ".aac" => "audio/aac",
+            ".m4a" => "audio/mp4",
+            ".mp3" => "audio/mpeg",
+            ".ogg" or ".opus" => "audio/ogg",
+            _ => "application/octet-stream",
+        });
         return file;
     }
 

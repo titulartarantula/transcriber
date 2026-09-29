@@ -135,7 +135,7 @@
                         <Switch x:Name="KeepAudio" Grid.Column="1" />
                     </Grid>
                     <Label Style="{StaticResource Hint}"
-                           Text="About 115 MB per hour, stored in the app. Delete recordings from the transcript list." />
+                           Text="About 21 MB per hour, stored in the app. Delete recordings from the transcript list." />
                 </VerticalStackLayout>
             </Border>
 

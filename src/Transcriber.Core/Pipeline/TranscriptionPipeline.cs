@@ -82,9 +82,7 @@ public sealed class TranscriptionPipeline(AppSettings settings, SpeakerReview? r
                 continue;
             }
 
-            var wav16 = Wav16Path(recording.Directory, source.FilePath);
-            if (!SamePath(wav16, source.FilePath))
-                await Task.Run(() => AudioConvert.WriteWav16(wav16, samples), ct);
+            var upload = await PrepareUploadAsync(recording.Directory, source, samples, progress, ct);
 
             bool separate = diarize && source.Diarize;
             progress.Report(separate
@@ -92,7 +90,7 @@ public sealed class TranscriptionPipeline(AppSettings settings, SpeakerReview? r
                 : $"Transcribing {source.Label}…");
 
             var (result, turns) = await TranscribeAndDiarize(
-                stt, wav16, samples, separate, expectedSpeakers, source.Label, warnings, clock, progress, ct);
+                stt, upload, samples, separate, expectedSpeakers, source.Label, warnings, clock, progress, ct);
             language ??= result.Language;
             sources.Add(new SourceTranscript(source.Label, source.Kind, WordExtractor.Extract(result), turns));
         }
@@ -143,11 +141,48 @@ public sealed class TranscriptionPipeline(AppSettings settings, SpeakerReview? r
         return new PipelineResult(saved, warnings, merged.Count);
     }
 
-    /// <summary>The file the pipeline sends to the server; a source that already is one is used as-is.</summary>
-    public static string Wav16Path(string directory, string sourcePath)
+    /// <summary>
+    /// The file sent to the server, and kept afterwards if audio is kept: the source itself when it's
+    /// already compact (a phone recording, kept audio being reprocessed), otherwise a compressed copy next
+    /// to it, or a 16 kHz WAV where there's no encoder.
+    /// </summary>
+    private static async Task<string> PrepareUploadAsync(
+        string directory, RecordedSource source, float[] samples, IProgress<string> progress, CancellationToken ct)
+    {
+        var sourcePath = source.FilePath;
+        var duration = TimeSpan.FromSeconds(samples.Length / (double)AudioConvert.SampleRate);
+        var name = Path.GetFileNameWithoutExtension(sourcePath);
+        if (AudioConvert.IsCompact(sourcePath, duration) || name.EndsWith(Wav16Suffix, StringComparison.OrdinalIgnoreCase))
+            return sourcePath;
+
+        progress.Report($"Compressing {source.Label}…");
+        if (AudioConvert.Encoder is { } encode)
+            return await Task.Run(() => encode(sourcePath, Path.Combine(directory, name + CompactSuffix)), ct);
+
+        var wav16 = Path.Combine(directory, name + Wav16Suffix + ".wav");
+        await Task.Run(() => AudioConvert.WriteWav16(wav16, samples), ct);
+        return wav16;
+    }
+
+    private const string CompactSuffix = "-compact";
+    private const string Wav16Suffix = "-16k";
+
+    /// <summary>
+    /// The file worth keeping for a source once its note is saved: the copy <see cref="TranscribeAsync"/>
+    /// made of it, else the source itself if it's compressed. Null if there's neither (a silent source).
+    /// </summary>
+    public static string? CompactCopy(string directory, string sourcePath)
     {
         var name = Path.GetFileNameWithoutExtension(sourcePath);
-        return Path.Combine(directory, name.EndsWith("-16k", StringComparison.OrdinalIgnoreCase) ? name + ".wav" : name + "-16k.wav");
+        var made = Directory.Exists(directory)
+            ? Directory.EnumerateFiles(directory, name + CompactSuffix + ".*")
+                .Append(Path.Combine(directory, name + Wav16Suffix + ".wav"))
+                .FirstOrDefault(File.Exists)
+            : null;
+        if (made is not null) return made;
+        return File.Exists(sourcePath) && (AudioConvert.IsCompressed(sourcePath) || name.EndsWith(Wav16Suffix, StringComparison.OrdinalIgnoreCase))
+            ? sourcePath
+            : null;
     }
 
     internal static bool SamePath(string a, string b) =>
@@ -167,21 +202,21 @@ public sealed class TranscriptionPipeline(AppSettings settings, SpeakerReview? r
     }
 
     private async Task<(WhisperResult, IReadOnlyList<SpeakerTurn>?)> TranscribeAndDiarize(
-        WhisperClient stt, string wav16, float[] samples, bool separate, int expectedSpeakers, string label,
+        WhisperClient stt, string upload, float[] samples, bool separate, int expectedSpeakers, string label,
         List<string> warnings, StepClock clock, IProgress<string> progress, CancellationToken ct)
     {
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
 
         // STT and diarization don't depend on each other, so run them side by side.
         var diarization = separate
-            ? Diarize(stt, wav16, samples, expectedSpeakers, label, warnings, clock, progress, linked.Token)
+            ? Diarize(stt, upload, samples, expectedSpeakers, label, warnings, clock, progress, linked.Token)
             : Task.FromResult<IReadOnlyList<SpeakerTurn>?>(null);
 
         WhisperResult result;
         var watch = Stopwatch.StartNew();
         try
         {
-            result = await stt.TranscribeAsync(wav16, ct);
+            result = await stt.TranscribeAsync(upload, ct);
             clock.Transcribe += watch.Elapsed;
         }
         catch
@@ -195,7 +230,7 @@ public sealed class TranscriptionPipeline(AppSettings settings, SpeakerReview? r
     }
 
     /// <summary>On the server when it can, else on this device; null if neither worked.</summary>
-    private async Task<IReadOnlyList<SpeakerTurn>?> Diarize(WhisperClient stt, string wav16, float[] samples,
+    private async Task<IReadOnlyList<SpeakerTurn>?> Diarize(WhisperClient stt, string upload, float[] samples,
         int expectedSpeakers, string label, List<string> warnings, StepClock clock, IProgress<string> progress, CancellationToken ct)
     {
         var watch = Stopwatch.StartNew();
@@ -203,7 +238,7 @@ public sealed class TranscriptionPipeline(AppSettings settings, SpeakerReview? r
         {
             try
             {
-                var turns = await stt.DiarizeAsync(wav16, expectedSpeakers, ct);
+                var turns = await stt.DiarizeAsync(upload, expectedSpeakers, ct);
                 clock.Diarized(watch.Elapsed, "on the server");
                 return turns;
             }

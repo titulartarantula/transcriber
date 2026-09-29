@@ -46,9 +46,41 @@ public sealed class PipelineFinishTests : IDisposable
     }
 
     [Fact]
-    public void Reprocessing_reuses_a_16k_copy_instead_of_making_another()
+    public void Compact_copy_is_the_one_the_pipeline_made_else_a_compressed_source()
     {
-        Assert.Equal(Path.Combine("d", "a-16k.wav"), TranscriptionPipeline.Wav16Path("d", Path.Combine("d", "a.wav")));
-        Assert.Equal(Path.Combine("d", "a-16k.wav"), TranscriptionPipeline.Wav16Path("d", Path.Combine("d", "a-16k.wav")));
+        Directory.CreateDirectory(_out);
+        string File(string name)
+        {
+            var path = Path.Combine(_out, name);
+            System.IO.File.WriteAllText(path, "x");
+            return path;
+        }
+
+        var raw = File("source1-SystemAudio.wav");
+        Assert.Null(TranscriptionPipeline.CompactCopy(_out, raw));
+        var made = File("source1-SystemAudio-compact.m4a");
+        Assert.Equal(made, TranscriptionPipeline.CompactCopy(_out, raw));
+        Assert.Equal(made, TranscriptionPipeline.CompactCopy(_out, made));
+
+        var phone = File("mic.aac");
+        Assert.Equal(phone, TranscriptionPipeline.CompactCopy(_out, phone));
+        var wav16 = File("mic2-16k.wav");
+        Assert.Equal(wav16, TranscriptionPipeline.CompactCopy(_out, wav16));
+    }
+
+    [Fact]
+    public void Only_small_compressed_files_count_as_compact()
+    {
+        Directory.CreateDirectory(_out);
+        var aac = Path.Combine(_out, "a.aac");
+        System.IO.File.WriteAllBytes(aac, new byte[6000]); // 48 kbps for a second
+        var wav = Path.Combine(_out, "a.wav");
+        System.IO.File.WriteAllBytes(wav, new byte[6000]);
+        var big = Path.Combine(_out, "b.m4a");
+        System.IO.File.WriteAllBytes(big, new byte[64000]); // 512 kbps
+
+        Assert.True(AudioConvert.IsCompact(aac, TimeSpan.FromSeconds(1)));
+        Assert.False(AudioConvert.IsCompact(wav, TimeSpan.FromSeconds(1)));
+        Assert.False(AudioConvert.IsCompact(big, TimeSpan.FromSeconds(1)));
     }
 }

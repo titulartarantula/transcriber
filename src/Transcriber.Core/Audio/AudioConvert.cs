@@ -14,6 +14,29 @@ public static class AudioConvert
     /// </summary>
     public static Func<string, WaveStream>? ExternalDecoder { get; set; }
 
+    /// <summary>
+    /// Compresses a recording for sending to the server and keeping (AAC on both platforms). Set by the
+    /// platform. Takes the source file and the output path without an extension; returns the file written.
+    /// </summary>
+    public static Func<string, string, string>? Encoder { get; set; }
+
+    private static readonly HashSet<string> CompressedExtensions =
+        new(StringComparer.OrdinalIgnoreCase) { ".aac", ".m4a", ".mp3", ".ogg", ".opus", ".wma" };
+
+    /// <summary>A lossy format the server decodes, so it can be sent and kept as it is.</summary>
+    public static bool IsCompressed(string path) => CompressedExtensions.Contains(Path.GetExtension(path));
+
+    /// <summary>
+    /// Compressed and no bigger than the same audio as 16 kHz WAV. Re-encoding such a file would only
+    /// lose quality; a 320 kbps import or a video's soundtrack is still worth shrinking.
+    /// </summary>
+    public static bool IsCompact(string path, TimeSpan duration) =>
+        IsCompressed(path) && new FileInfo(path).Length <= Math.Max(1, duration.TotalSeconds) * SampleRate * 2;
+
+    /// <summary>Averages every channel into one.</summary>
+    public static ISampleProvider ToMono(ISampleProvider source) =>
+        source.WaveFormat.Channels > 1 ? new DownmixToMono(source) : source;
+
     private static readonly Guid FloatSubFormat = new("00000003-0000-0010-8000-00aa00389b71");
 
     /// <summary>Opens an audio file as a stream NAudio can turn into float samples.</summary>
@@ -59,7 +82,7 @@ public static class AudioConvert
     {
         using var reader = Open(path);
         ISampleProvider provider = reader.ToSampleProvider();
-        if (provider.WaveFormat.Channels > 1) provider = new DownmixToMono(provider);
+        provider = ToMono(provider);
         if (provider.WaveFormat.SampleRate != SampleRate) provider = new WdlResamplingSampleProvider(provider, SampleRate);
 
         var estimate = (int)Math.Min(int.MaxValue, reader.TotalTime.TotalSeconds * SampleRate + SampleRate);

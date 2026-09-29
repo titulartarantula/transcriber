@@ -88,7 +88,7 @@ public sealed class SessionController
         UpdateService();
         try
         {
-            _recorder = await MicRecorder.StartAsync(mic, Path.Combine(_directory, "mic.wav"));
+            _recorder = await MicRecorder.StartAsync(mic, Path.Combine(_directory, "mic.aac"));
             // Bluetooth routing can take a few seconds; the clock starts when audio does.
             _startedAt = DateTimeOffset.Now - _recorder.Elapsed;
         }
