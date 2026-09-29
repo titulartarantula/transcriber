@@ -199,3 +199,8 @@ tests/Transcriber.Tests
 - System audio is captured per output device, not per app.
 - Diarization is a best guess. Very short turns and people with similar voices can be merged or split
   wrongly, which is why the naming dialog lets you merge speakers by giving them the same name.
+
+## Licence
+
+Transcriber is free software under the [GNU General Public License v3.0](LICENSE): you may use, change and
+share it, and anything you distribute that builds on it must be released under the same licence.
