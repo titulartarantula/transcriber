@@ -56,7 +56,7 @@ Or `-DryRun` to build without releasing. The bundle is `artifacts\Transcriber-an
 
 | Section | Answer |
 | --- | --- |
-| Privacy policy | URL of the published `privacy-policy.md` (it must be public; the repo is private) |
+| Privacy policy | https://gist.github.com/titulartarantula/b35e876388257be2cb12e2c4a9cb6ff1 (public gist of `privacy-policy.md`; update both together) |
 | Ads | No ads |
 | App access | "Some functionality is restricted" — see below |
 | Content rating | Questionnaire, category *Utility, productivity, communication or other*; no to every content question → rated Everyone |
@@ -130,7 +130,7 @@ Only testers see it, but Play asks for it before the first rollout.
 - **App icon:** `docs/play/assets/icon-512.png`
 - **Feature graphic:** `docs/play/assets/feature-1024x500.png`
 - **Phone screenshots:** `docs/play/assets/screenshot-*.png` (at least two)
-- **App category:** Productivity. **Contact email:** required, and shown to testers.
+- **App category:** Productivity. **Contact email:** titulartarantula@gmail.com (shown to testers).
 
 ## Later
 

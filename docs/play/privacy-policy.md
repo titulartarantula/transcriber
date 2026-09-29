@@ -1,6 +1,6 @@
 # Transcriber for Android: privacy policy
 
-_Last updated: [date of publishing]_
+_Last updated: 29 September 2026_
 
 Transcriber records meetings on your phone, sends the audio to a speech-to-text server **that you set up
 and choose**, and saves the transcript where **you choose**. The developer runs no servers for the app and
@@ -57,4 +57,4 @@ The app isn't directed at children.
 ## Changes and contact
 
 If this policy changes, the new version will be posted at this address with a new date.
-Questions: [contact email].
+Questions: titulartarantula@gmail.com.
