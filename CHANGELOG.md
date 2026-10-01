@@ -26,6 +26,9 @@ its release and uses them as the GitHub release notes.
 
 ### Android
 
+- Transcripts that kept their audio have a **Share audio** button. It sends the original recording through
+  Android's share sheet (Drive, Quick Share, email…) to get it off the phone.
+
 ## Android 0.3.0 - 2026-09-29
 
 - Recording is never blocked by transcription. Stopping a recording queues it, and a **Transcripts** list

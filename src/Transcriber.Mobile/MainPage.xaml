@@ -74,6 +74,7 @@
                                         <Button Text="Name speakers" Clicked="OnNameSpeakers" IsVisible="{Binding CanName}" Margin="0,6,8,0" />
                                         <Button Text="Retry" Clicked="OnRetryJob" IsVisible="{Binding CanRetry}" Margin="0,6,8,0" />
                                         <Button Text="Reprocess" Clicked="OnReprocessJob" IsVisible="{Binding CanReprocess}" Margin="0,6,8,0" />
+                                        <Button Text="Share audio" Clicked="OnShareAudio" IsVisible="{Binding CanShareAudio}" Margin="0,6,8,0" />
                                         <Button Text="Cancel" Clicked="OnCancelJob" IsVisible="{Binding CanCancel}" Margin="0,6,8,0"
                                                 BackgroundColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}"
                                                 TextColor="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource White}}" />

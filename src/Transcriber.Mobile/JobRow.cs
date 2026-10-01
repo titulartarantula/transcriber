@@ -40,6 +40,8 @@ public sealed class JobRow(TranscriptionJob job) : INotifyPropertyChanged
 
     public bool CanReprocess => _job.CanReprocess;
 
+    public bool CanShareAudio => _job.State == JobState.Saved && _job.AudioKept;
+
     public bool CanRemove => !_job.IsActive;
 
     public string RemoveText => _job.RemoveDeletesAudio ? "Delete" : "Dismiss";

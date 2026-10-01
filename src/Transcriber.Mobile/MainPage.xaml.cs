@@ -203,6 +203,19 @@ public partial class MainPage : ContentPage
 
     private void OnReprocessJob(object? sender, EventArgs e) => _session.Queue.Reprocess(RowOf(sender).Id);
 
+    /// <summary>Hands the kept audio to Android's share sheet (Drive, Quick Share, email…) to get it off the phone.</summary>
+    private async void OnShareAudio(object? sender, EventArgs e)
+    {
+        var row = RowOf(sender);
+        var files = row.Job.Recording.Sources.Select(s => s.FilePath).Where(File.Exists).Select(p => new ShareFile(p)).ToList();
+        if (files.Count == 0)
+        {
+            await DisplayAlertAsync("No audio", $"The audio of “{row.Title}” is no longer on this phone.", "OK");
+            return;
+        }
+        await Share.Default.RequestAsync(new ShareMultipleFilesRequest(row.Title, files));
+    }
+
     private void OnCancelJob(object? sender, EventArgs e) => _session.Queue.Cancel(RowOf(sender).Id);
 
     private async void OnRemoveJob(object? sender, EventArgs e)
