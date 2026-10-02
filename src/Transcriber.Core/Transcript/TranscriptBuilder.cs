@@ -26,7 +26,13 @@ public static partial class TranscriptBuilder
             if (result.Count > 0 && result[^1] is var last && last.Speaker == u.Speaker
                 && u.Start - last.End < ParagraphGapSeconds)
             {
-                result[^1] = last with { End = Math.Max(last.End, u.End), Text = last.Text + " " + u.Text };
+                int shift = last.Text.Length + 1;
+                result[^1] = last with
+                {
+                    End = Math.Max(last.End, u.End),
+                    Text = last.Text + " " + u.Text,
+                    Interjections = [.. last.Interjections, .. u.Interjections.Select(x => x with { Offset = x.Offset + shift })],
+                };
             }
             else
             {
@@ -36,19 +42,38 @@ public static partial class TranscriptBuilder
         return result;
     }
 
-    /// <summary>Turns one source's words into speaker-attributed utterances.</summary>
+    /// <summary>Longest remark, in words and seconds, that's shown as an interjection rather than its own turn.</summary>
+    internal const int MaxInterjectionWords = 4;
+
+    /// <inheritdoc cref="MaxInterjectionWords"/>
+    internal const double MaxInterjectionSeconds = 2.0;
+
+    /// <summary>
+    /// Turns one source's words into speaker-attributed utterances. A short remark like "yep" from someone
+    /// else in the middle of a speaker's turn goes into that turn as an <see cref="Interjection"/> rather
+    /// than splitting it in two.
+    /// </summary>
     public static List<Utterance> BuildForSource(SourceTranscript source)
     {
+        var words = source.Words;
         var speakers = AssignSpeakers(source);
         var result = new List<Utterance>();
         var text = new StringBuilder();
+        var asides = new List<(string Speaker, int At, string Text)>();
         string? current = null;
         double start = 0, end = 0;
 
-        for (int i = 0; i < source.Words.Count; i++)
+        for (int i = 0; i < words.Count; i++)
         {
-            var w = source.Words[i];
+            var w = words[i];
             var speaker = speakers[i];
+            if (current is not null && speaker != current && InterjectionEnd(i) is int last)
+            {
+                asides.Add((speaker, text.Length, Join(words, i, last)));
+                i = last;
+                continue;
+            }
+
             bool newParagraph = current is null || speaker != current || w.Start - end >= ParagraphGapSeconds;
             if (newParagraph)
             {
@@ -62,14 +87,66 @@ public static partial class TranscriptBuilder
         Flush();
         return result;
 
+        // Where the run of another speaker starting at i ends, if it's a short remark followed by the
+        // current speaker carrying on.
+        int? InterjectionEnd(int i)
+        {
+            int last = i;
+            while (last + 1 < words.Count && speakers[last + 1] == speakers[i]) last++;
+            bool resumes = last + 1 < words.Count && speakers[last + 1] == current;
+            bool brief = last - i + 1 <= MaxInterjectionWords && words[last].End - words[i].Start <= MaxInterjectionSeconds;
+            return resumes && brief && IsInterjection(Join(words, i, last)) ? last : null;
+        }
+
         void Flush()
         {
-            var t = NormalizeSpace(text.ToString());
+            var raw = text.ToString();
+            var t = NormalizeSpace(raw);
             if (current is not null && t.Length > 0)
-                result.Add(new Utterance(current, source.Kind, start, end, t));
+            {
+                result.Add(new Utterance(current, source.Kind, start, end, t)
+                {
+                    Interjections = asides.Select(a => new Interjection(a.Speaker, NormalizeSpace(raw[..a.At]).Length, a.Text)).ToList(),
+                });
+            }
             text.Clear();
+            asides.Clear();
         }
     }
+
+    private static string Join(IReadOnlyList<TimedWord> words, int from, int to) =>
+        NormalizeSpace(string.Concat(words.Skip(from).Take(to - from + 1).Select(w => w.Text)));
+
+    /// <summary>
+    /// Whether the words are only what people say to show they're listening ("yeah", "mm-hmm", "oh my god",
+    /// "that's right"), as opposed to taking the floor.
+    /// </summary>
+    internal static bool IsInterjection(string text)
+    {
+        var tokens = WordRegex().Matches(text.ToLowerInvariant()).Select(m => m.Value).ToArray();
+        if (tokens.Length == 0) return false;
+        for (int i = 0; i < tokens.Length;)
+        {
+            var phrase = Backchannels.FirstOrDefault(p => p.Length <= tokens.Length - i && p.AsSpan().SequenceEqual(tokens.AsSpan(i, p.Length)));
+            if (phrase is null) return false;
+            i += phrase.Length;
+        }
+        return true;
+    }
+
+    // Longest first, so "oh my god" is matched before "oh".
+    private static readonly string[][] Backchannels =
+        new[]
+        {
+            "yeah", "yes", "yep", "yup", "ya", "yah", "okay", "ok", "mm", "mhm", "mmhmm", "hmm", "uh huh", "mm hmm",
+            "right", "sure", "totally", "exactly", "true", "wow", "oh", "ah", "huh", "cool", "nice", "great",
+            "perfect", "absolutely", "definitely", "agreed", "no", "nope", "gotcha", "interesting", "alright",
+            "all right", "i know", "i see", "for sure", "that's right", "that's true", "of course", "fair enough",
+            "makes sense", "oh my god", "got it", "me too",
+        }
+        .Select(p => p.Split(' '))
+        .OrderByDescending(p => p.Length)
+        .ToArray();
 
     /// <summary>
     /// Labels each word with a speaker. Undiarized sources use the source label; diarized ones get
@@ -95,6 +172,7 @@ public static partial class TranscriptBuilder
         // Words before the first matched turn inherit the first speaker that does match.
         int first = raw.FirstOrDefault(r => r >= 0, -1);
         for (int i = 0; i < raw.Length && raw[i] < 0; i++) raw[i] = first;
+        AbsorbSlivers(raw, source.Words);
 
         var order = new Dictionary<int, int>();
         foreach (var r in raw)
@@ -103,6 +181,66 @@ public static partial class TranscriptBuilder
         for (int i = 0; i < raw.Length; i++)
             labels[i] = order.Count <= 1 || raw[i] < 0 ? source.Label : $"{source.Label} {order[raw[i]]}";
         return labels;
+    }
+
+    /// <summary>A fragment this short can be handed back to the speaker on either side of it.</summary>
+    internal const double MaxSliverSeconds = 1.0;
+
+    /// <summary>
+    /// Gives short fragments back to the person who was talking. When two people talk at once, diarization
+    /// gives each instant to one of them, so the talker's sentence comes out in slivers ("an intake | of |
+    /// some kind"). A run of up to <see cref="MaxSliverSeconds"/> inside one Whisper segment, between two runs
+    /// of the same other speaker, joins them. Shortest first, so a flurry of slivers resolves to whoever
+    /// holds most of it. Remarks like "yep" are joined too, so they don't pull the slivers beside them
+    /// their way, then given back to their speaker to become interjections.
+    /// </summary>
+    private static void AbsorbSlivers(int[] raw, IReadOnlyList<TimedWord> words)
+    {
+        var original = (int[])raw.Clone();
+        while (JoinShortestSliver(raw, words)) { }
+
+        for (int i = 0; i < raw.Length;)
+        {
+            int j = i;
+            while (j + 1 < raw.Length && original[j + 1] == original[i]) j++;
+            bool absorbed = raw[i] != original[i];
+            bool brief = j - i + 1 <= MaxInterjectionWords && words[j].End - words[i].Start <= MaxInterjectionSeconds;
+            if (absorbed && brief && IsInterjection(Join(words, i, j))) Array.Copy(original, i, raw, i, j - i + 1);
+            i = j + 1;
+        }
+
+    }
+
+    /// <summary>Gives the shortest sliver to the speaker around it; false when there are none left.</summary>
+    private static bool JoinShortestSliver(int[] raw, IReadOnlyList<TimedWord> words)
+    {
+        // Runs of one speaker within one segment.
+        var runs = new List<(int From, int To)>();
+        for (int i = 0; i < raw.Length;)
+        {
+            int j = i;
+            while (j + 1 < raw.Length && raw[j + 1] == raw[i] && words[j + 1].Segment == words[i].Segment) j++;
+            runs.Add((i, j));
+            i = j + 1;
+        }
+
+        (int From, int To, int Speaker)? pick = null;
+        double shortest = MaxSliverSeconds;
+        for (int r = 1; r < runs.Count - 1; r++)
+        {
+            var (from, to) = runs[r];
+            int before = runs[r - 1].To, after = runs[r + 1].From;
+            int segment = words[from].Segment;
+            if (segment < 0 || words[before].Segment != segment || words[after].Segment != segment) continue;
+            if (raw[before] != raw[after] || raw[before] == raw[from]) continue;
+            double length = words[to].End - words[from].Start;
+            if (length > shortest) continue;
+            shortest = length;
+            pick = (from, to, raw[before]);
+        }
+        if (pick is not { } p) return false;
+        Array.Fill(raw, p.Speaker, p.From, p.To - p.From + 1);
+        return true;
     }
 
     /// <summary>The turn overlapping the word most, else the nearest turn within a second.</summary>

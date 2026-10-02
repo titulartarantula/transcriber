@@ -195,7 +195,8 @@ public sealed class TranscriptionPipeline(AppSettings settings, SpeakerReview? r
         foreach (var source in draft.Sources)
         {
             var utterances = TranscriptBuilder.BuildForSource(source);
-            if (source.Turns is not null) generic.UnionWith(utterances.Select(u => u.Speaker));
+            if (source.Turns is not null)
+                generic.UnionWith(utterances.SelectMany(u => u.Interjections.Select(x => x.Speaker).Prepend(u.Speaker)));
             perSource.Add(utterances);
         }
         return (TranscriptBuilder.Merge(perSource, settings.Speakers.SuppressEcho), generic);
@@ -272,8 +273,14 @@ public sealed class TranscriptionPipeline(AppSettings settings, SpeakerReview? r
     {
         if (names.Count == 0) return utterances;
 
+        string Rename(string speaker) =>
+            names.TryGetValue(speaker, out var n) && !string.IsNullOrWhiteSpace(n) ? n.Trim() : speaker;
         var renamed = utterances
-            .Select(u => names.TryGetValue(u.Speaker, out var n) && !string.IsNullOrWhiteSpace(n) ? u with { Speaker = n.Trim() } : u)
+            .Select(u => u with
+            {
+                Speaker = Rename(u.Speaker),
+                Interjections = u.Interjections.Select(x => x with { Speaker = Rename(x.Speaker) }).ToList(),
+            })
             .ToList();
         // Two clusters mapped to the same person should read as one continuous turn.
         return TranscriptBuilder.JoinAdjacent(renamed);

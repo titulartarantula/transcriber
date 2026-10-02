@@ -53,7 +53,7 @@ public static partial class SpeakerNames
             taken.Add(pick);
         }
 
-        return utterances
+        var summaries = utterances
             .GroupBy(u => u.Speaker)
             .OrderBy(g => g.Min(u => u.Start))
             .Select(g => new SpeakerSummary(
@@ -63,6 +63,18 @@ public static partial class SpeakerNames
                 Truncate(g.MaxBy(u => u.Text.Length)!.Text, 160),
                 suggestions.GetValueOrDefault(g.Key)))
             .ToList();
+
+        // Someone who only ever chimed in ("yep") still needs a name.
+        var onlyInterjected = utterances
+            .SelectMany(u => u.Interjections)
+            .GroupBy(x => x.Speaker)
+            .Where(g => summaries.All(s => s.Speaker != g.Key));
+        foreach (var g in onlyInterjected)
+        {
+            summaries.Add(new SpeakerSummary(g.Key, genericSpeakers.Contains(g.Key), TimeSpan.Zero,
+                Truncate(g.MaxBy(x => x.Text.Length)!.Text, 160), suggestions.GetValueOrDefault(g.Key)));
+        }
+        return summaries;
     }
 
     internal static IEnumerable<string> Introductions(string text)

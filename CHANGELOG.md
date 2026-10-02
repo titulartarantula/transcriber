@@ -23,8 +23,17 @@ its release and uses them as the GitHub release notes.
 - Recordings are compressed to AAC (48 kHz mono, 96 kbps, about 43 MB an hour) before they're sent to the
   server and kept, instead of WAV (up to about 1.4 GB an hour while recording). Imported m4a, aac and mp3
   files that are already small are sent as they are.
+- Short remarks like "yep" or "yeah okay" made while someone else is talking appear in that person's line
+  as "(Speaker 2: yep)" instead of splitting it into separate turns.
+- Fewer sentences chopped between speakers when two people talk at once: a fragment under a second in the
+  middle of someone's sentence goes back to them.
 
 ### Android
+
+- Short remarks like "yep" or "yeah okay" made while someone else is talking appear in that person's line
+  as "(Speaker 2: yep)" instead of splitting it into separate turns.
+- Fewer sentences chopped between speakers when two people talk at once: a fragment under a second in the
+  middle of someone's sentence goes back to them.
 
 ## Android 0.3.1 - 2026-10-02
 

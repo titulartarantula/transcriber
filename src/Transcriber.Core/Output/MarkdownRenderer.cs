@@ -25,7 +25,10 @@ public static class MarkdownRenderer
 {
     public static string Render(NoteData note)
     {
-        var speakers = note.Utterances.Select(u => u.Speaker).Distinct().ToList();
+        var speakers = note.Utterances
+            .SelectMany(u => u.Interjections.Select(x => x.Speaker).Prepend(u.Speaker))
+            .Distinct()
+            .ToList();
         var sb = new StringBuilder();
 
         sb.AppendLine("---");
@@ -55,10 +58,28 @@ public static class MarkdownRenderer
         foreach (var u in note.Utterances)
         {
             var name = note.LinkSpeakers ? $"[[{u.Speaker}]]" : u.Speaker;
-            sb.AppendLine($"**[{TimeOfDay(note.StartedAt, u.Start)}] {name}:** {u.Text}");
+            sb.AppendLine($"**[{TimeOfDay(note.StartedAt, u.Start)}] {name}:** {WithInterjections(u, note.LinkSpeakers)}");
             sb.AppendLine();
         }
         return sb.ToString().TrimEnd() + Environment.NewLine;
+    }
+
+    /// <summary>"we need data (Sam: yep) for the intake". A remark by the speaker themselves (two clusters
+    /// given the same name) just reads as part of what they said.</summary>
+    private static string WithInterjections(Utterance u, bool link)
+    {
+        if (u.Interjections.Count == 0) return u.Text;
+        var sb = new StringBuilder();
+        int at = 0;
+        foreach (var x in u.Interjections)
+        {
+            int offset = Math.Clamp(x.Offset, at, u.Text.Length);
+            sb.Append(u.Text, at, offset - at);
+            if (x.Speaker == u.Speaker) sb.Append(' ').Append(x.Text);
+            else sb.Append(" (").Append(link ? $"[[{x.Speaker}]]" : x.Speaker).Append(": ").Append(x.Text).Append(')');
+            at = offset;
+        }
+        return sb.Append(u.Text, at, u.Text.Length - at).ToString();
     }
 
     /// <summary>Wall-clock time of a point in the recording, 24-hour HH:mm:ss.</summary>

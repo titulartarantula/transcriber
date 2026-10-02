@@ -11,8 +11,10 @@ public static class WordExtractor
     public static IReadOnlyList<TimedWord> Extract(WhisperResult result, double offsetSeconds = 0)
     {
         var words = new List<TimedWord>();
+        int index = -1;
         foreach (var seg in result.Segments)
         {
+            index++;
             // Same thresholds Whisper uses to decide a window was silence or a hallucination loop.
             if (seg.NoSpeechProb > 0.6 && seg.AvgLogprob < -1.0) continue;
             if (seg.CompressionRatio > 2.4) continue;
@@ -26,13 +28,13 @@ public static class WordExtractor
                 foreach (var w in segWords)
                 {
                     if (string.IsNullOrWhiteSpace(w.Word)) continue;
-                    words.Add(new TimedWord(w.Start + offsetSeconds, w.End + offsetSeconds, w.Word));
+                    words.Add(new TimedWord(w.Start + offsetSeconds, w.End + offsetSeconds, w.Word, index));
                 }
             }
             else if (!string.IsNullOrWhiteSpace(seg.Text))
             {
                 // Server without word timestamps: keep the segment as one coarse "word".
-                words.Add(new TimedWord(seg.Start + offsetSeconds, seg.End + offsetSeconds, seg.Text));
+                words.Add(new TimedWord(seg.Start + offsetSeconds, seg.End + offsetSeconds, seg.Text, index));
             }
         }
         return words;

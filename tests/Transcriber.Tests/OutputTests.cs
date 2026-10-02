@@ -37,6 +37,21 @@ public class OutputTests
     }
 
     [Fact]
+    public void Renders_interjections_in_parentheses_and_lists_their_speakers()
+    {
+        var line = new Utterance("Priya", SourceKind.Microphone, 3, 6, "We need data for the intake.")
+        {
+            Interjections = [new("Tom", "We need data".Length, "yep"), new("Priya", "We need data for".Length, "um")],
+        };
+        var note = new NoteData("t", Start, TimeSpan.FromSeconds(6), [], [line], "m", null, [], LinkSpeakers: true);
+
+        var md = MarkdownRenderer.Render(note);
+
+        Assert.Contains("**[14:03:03] [[Priya]]:** We need data ([[Tom]]: yep) for um the intake.", md);
+        Assert.Contains("  - \"[[Tom]]\"", md);
+    }
+
+    [Fact]
     public void Yaml_escapes_quotes_and_backslashes() =>
         Assert.Equal("\"say \\\"hi\\\" C:\\\\x\"", MarkdownRenderer.Yaml("say \"hi\" C:\\x"));
 

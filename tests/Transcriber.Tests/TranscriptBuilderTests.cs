@@ -83,6 +83,98 @@ public class TranscriptBuilderTests
         Assert.Equal(2, TranscriptBuilder.Merge([[mic], [system]], suppressEcho: true).Count);
     }
 
+    // Words with the Whisper segment each came from.
+    private static List<TimedWord> Words(params (double Start, double End, string Text, int Segment)[] w) =>
+        w.Select(x => new TimedWord(x.Start, x.End, " " + x.Text, x.Segment)).ToList();
+
+    [Fact]
+    public void Sliver_of_another_speaker_mid_sentence_goes_back_to_the_talker()
+    {
+        // Overlapping speech: diarization gave "of" to whoever said "mm" over it.
+        var words = Words((0, 0.3, "an", 0), (0.3, 0.8, "intake", 0), (0.8, 1.0, "of", 0), (1.0, 1.3, "some", 0), (1.3, 1.6, "kind", 0));
+        var turns = new List<SpeakerTurn> { new(0, 0.8, 0), new(0.8, 1.0, 1), new(1.0, 2, 0) };
+        var u = Assert.Single(TranscriptBuilder.BuildForSource(new SourceTranscript("R", SourceKind.Microphone, words, turns)));
+        Assert.Equal("an intake of some kind", u.Text);
+        Assert.Empty(u.Interjections);
+    }
+
+    [Fact]
+    public void Short_reply_in_its_own_sentence_keeps_its_speaker()
+    {
+        var words = Words((0, 0.5, "really", 0), (0.5, 1.0, "confused", 0), (1.0, 1.6, "probably", 1), (1.6, 2.0, "is", 1), (2.0, 2.5, "anyway", 2));
+        var turns = new List<SpeakerTurn> { new(0, 1.0, 0), new(1.0, 2.0, 1), new(2.0, 3, 0) };
+        var result = TranscriptBuilder.BuildForSource(new SourceTranscript("R", SourceKind.Microphone, words, turns));
+        Assert.Equal(["R 1", "R 2", "R 1"], result.Select(u => u.Speaker));
+    }
+
+    [Fact]
+    public void Slivers_in_a_flurry_resolve_to_whoever_holds_most_of_it()
+    {
+        // A B A B A within one sentence, A holding the longer pieces.
+        var words = Words((0, 1.0, "trying", 0), (1.0, 1.2, "to", 0), (1.2, 2.0, "be", 0), (2.0, 2.3, "really", 0), (2.3, 3.5, "clear", 0));
+        var turns = new List<SpeakerTurn> { new(0, 1.0, 0), new(1.0, 1.2, 1), new(1.2, 2.0, 0), new(2.0, 2.3, 1), new(2.3, 4, 0) };
+        var u = Assert.Single(TranscriptBuilder.BuildForSource(new SourceTranscript("R", SourceKind.Microphone, words, turns)));
+        Assert.Equal("trying to be really clear", u.Text);
+    }
+
+    [Fact]
+    public void Remark_while_someone_talks_becomes_an_interjection()
+    {
+        var words = Words((0, 0.4, "we", 0), (0.4, 0.7, "need", 0), (0.7, 1.0, "data", 0), (1.0, 1.3, "yep", 0), (1.3, 1.6, "for", 0), (1.6, 2.0, "intake", 0));
+        var turns = new List<SpeakerTurn> { new(0, 1.0, 0), new(1.0, 1.3, 1), new(1.3, 2.5, 0) };
+        var u = Assert.Single(TranscriptBuilder.BuildForSource(new SourceTranscript("R", SourceKind.Microphone, words, turns)));
+        Assert.Equal("R 1", u.Speaker);
+        Assert.Equal("we need data for intake", u.Text);
+        Assert.Equal(new Interjection("R 2", "we need data".Length, "yep"), Assert.Single(u.Interjections));
+    }
+
+    [Fact]
+    public void Remark_among_slivers_doesnt_pull_them_its_way()
+    {
+        // From a real recording: "academic | yep | data | there's | an intake | of | some kind".
+        var words = Words((0, 0.6, "academic", 0), (0.6, 0.8, "yep", 0), (0.8, 1.1, "data", 0), (1.1, 1.4, "there's", 0),
+            (1.4, 2.4, "an", 0), (2.4, 2.8, "intake", 0), (2.8, 3.0, "of", 0), (3.0, 3.6, "some", 0), (3.6, 4.0, "kind", 0));
+        var turns = new List<SpeakerTurn>
+        {
+            new(0, 0.6, 0), new(0.6, 0.8, 1), new(0.8, 1.1, 0), new(1.1, 1.4, 1), new(1.4, 2.8, 0), new(2.8, 3.0, 1), new(3.0, 5, 0),
+        };
+        var u = Assert.Single(TranscriptBuilder.BuildForSource(new SourceTranscript("R", SourceKind.Microphone, words, turns)));
+        Assert.Equal("academic data there's an intake of some kind", u.Text);
+        Assert.Equal(new Interjection("R 2", "academic".Length, "yep"), Assert.Single(u.Interjections));
+    }
+
+    [Fact]
+    public void Remark_that_ends_the_exchange_is_its_own_turn()
+    {
+        var words = Words((0, 0.5, "makes", 0), (0.5, 1.0, "sense", 0), (1.5, 2.0, "yeah", 1));
+        var turns = new List<SpeakerTurn> { new(0, 1.0, 0), new(1.5, 2.0, 1) };
+        var result = TranscriptBuilder.BuildForSource(new SourceTranscript("R", SourceKind.Microphone, words, turns));
+        Assert.Equal(["R 1", "R 2"], result.Select(u => u.Speaker));
+    }
+
+    [Theory]
+    [InlineData("yep", true)]
+    [InlineData(" Oh my God.", true)]
+    [InlineData("yeah, okay", true)]
+    [InlineData("mm-hmm", true)]
+    [InlineData("of", false)]
+    [InlineData("yes I agree", false)]
+    public void Recognises_interjections(string text, bool expected) =>
+        Assert.Equal(expected, TranscriptBuilder.IsInterjection(text));
+
+    [Fact]
+    public void JoinAdjacent_keeps_interjections_in_place()
+    {
+        var list = new List<Utterance>
+        {
+            new("Priya", SourceKind.SystemAudio, 0, 2, "First part."),
+            new("Priya", SourceKind.SystemAudio, 2.5, 4, "Second part.") { Interjections = [new("Tom", 6, "yep")] },
+        };
+        var joined = Assert.Single(TranscriptBuilder.JoinAdjacent(list));
+        Assert.Equal("First part. Second part.", joined.Text);
+        Assert.Equal("First part. Second".Length, Assert.Single(joined.Interjections).Offset);
+    }
+
     [Fact]
     public void JoinAdjacent_merges_renamed_clusters()
     {
