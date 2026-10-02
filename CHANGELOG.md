@@ -8,6 +8,10 @@ its release and uses them as the GitHub release notes.
 
 ### Windows
 
+### Android
+
+## Windows 0.2.0 - 2026-10-02
+
 - Recording is never blocked by transcription. Stopping a recording queues it, and the new **Transcripts**
   list shows each one's progress with Name speakers, Cancel, Retry, Reprocess, Open note and Delete.
 - A transcript waiting for speaker names no longer holds up the next one. The naming dialog's new **Later**
@@ -27,8 +31,6 @@ its release and uses them as the GitHub release notes.
   as "(Speaker 2: yep)" instead of splitting it into separate turns.
 - Fewer sentences chopped between speakers when two people talk at once: a fragment under a second in the
   middle of someone's sentence goes back to them.
-
-### Android
 
 ## Android 0.3.2 - 2026-10-02
 
