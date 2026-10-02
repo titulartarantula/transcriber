@@ -8,7 +8,13 @@ its release and uses them as the GitHub release notes.
 
 ### Windows
 
+- When someone says "mm-hmm" over a long turn, the talker's words stay with the talker. Needs the
+  whisper-server update that returns overlapping turns; with an older server nothing changes.
+
 ### Android
+
+- When someone says "mm-hmm" over a long turn, the talker's words stay with the talker. Needs the
+  whisper-server update that returns overlapping turns; with an older server nothing changes.
 
 ## Windows 0.2.0 - 2026-10-02
 

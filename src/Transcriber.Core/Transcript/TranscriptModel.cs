@@ -14,7 +14,14 @@ public sealed record SourceTranscript(
     string Label,
     SourceKind Kind,
     IReadOnlyList<TimedWord> Words,
-    IReadOnlyList<SpeakerTurn>? Turns);
+    IReadOnlyList<SpeakerTurn>? Turns)
+{
+    /// <summary>
+    /// The diarizer's turns before overlaps were resolved to one speaker, when it reports them (the server
+    /// does; this device doesn't). Used to keep a talker's words with them while someone says "mm-hmm".
+    /// </summary>
+    public IReadOnlyList<SpeakerTurn>? OverlappingTurns { get; init; }
+}
 
 /// <summary>A run of words from one speaker.</summary>
 public sealed record Utterance(string Speaker, SourceKind Kind, double Start, double End, string Text)

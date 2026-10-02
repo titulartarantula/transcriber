@@ -89,10 +89,13 @@ public sealed class TranscriptionPipeline(AppSettings settings, SpeakerReview? r
                 ? $"Transcribing {source.Label} and separating speakers…"
                 : $"Transcribing {source.Label}…");
 
-            var (result, turns) = await TranscribeAndDiarize(
+            var (result, diarization) = await TranscribeAndDiarize(
                 stt, upload, samples, separate, expectedSpeakers, source.Label, warnings, clock, progress, ct);
             language ??= result.Language;
-            sources.Add(new SourceTranscript(source.Label, source.Kind, WordExtractor.Extract(result), turns));
+            sources.Add(new SourceTranscript(source.Label, source.Kind, WordExtractor.Extract(result), diarization?.Turns)
+            {
+                OverlappingTurns = diarization?.Overlapping,
+            });
         }
 
         return new TranscriptDraft(sources, language, settings.Stt.Model, warnings, clock.ToTimings());
@@ -202,7 +205,7 @@ public sealed class TranscriptionPipeline(AppSettings settings, SpeakerReview? r
         return (TranscriptBuilder.Merge(perSource, settings.Speakers.SuppressEcho), generic);
     }
 
-    private async Task<(WhisperResult, IReadOnlyList<SpeakerTurn>?)> TranscribeAndDiarize(
+    private async Task<(WhisperResult, DiarizationTurns?)> TranscribeAndDiarize(
         WhisperClient stt, string upload, float[] samples, bool separate, int expectedSpeakers, string label,
         List<string> warnings, StepClock clock, IProgress<string> progress, CancellationToken ct)
     {
@@ -211,7 +214,7 @@ public sealed class TranscriptionPipeline(AppSettings settings, SpeakerReview? r
         // STT and diarization don't depend on each other, so run them side by side.
         var diarization = separate
             ? Diarize(stt, upload, samples, expectedSpeakers, label, warnings, clock, progress, linked.Token)
-            : Task.FromResult<IReadOnlyList<SpeakerTurn>?>(null);
+            : Task.FromResult<DiarizationTurns?>(null);
 
         WhisperResult result;
         var watch = Stopwatch.StartNew();
@@ -231,7 +234,7 @@ public sealed class TranscriptionPipeline(AppSettings settings, SpeakerReview? r
     }
 
     /// <summary>On the server when it can, else on this device; null if neither worked.</summary>
-    private async Task<IReadOnlyList<SpeakerTurn>?> Diarize(WhisperClient stt, string upload, float[] samples,
+    private async Task<DiarizationTurns?> Diarize(WhisperClient stt, string upload, float[] samples,
         int expectedSpeakers, string label, List<string> warnings, StepClock clock, IProgress<string> progress, CancellationToken ct)
     {
         var watch = Stopwatch.StartNew();
@@ -239,9 +242,9 @@ public sealed class TranscriptionPipeline(AppSettings settings, SpeakerReview? r
         {
             try
             {
-                var turns = await stt.DiarizeAsync(upload, expectedSpeakers, ct);
+                var diarization = await stt.DiarizeAsync(upload, expectedSpeakers, ct);
                 clock.Diarized(watch.Elapsed, "on the server");
-                return turns;
+                return diarization;
             }
             catch (DiarizationUnsupportedException)
             {
@@ -260,7 +263,7 @@ public sealed class TranscriptionPipeline(AppSettings settings, SpeakerReview? r
             var turns = await Task.Run(
                 () => Diarizer.Run(samples, expectedSpeakers, settings.Speakers.ClusterThreshold, ct: ct), ct);
             clock.Diarized(watch.Elapsed, "on this device");
-            return turns;
+            return new DiarizationTurns(turns, null);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {

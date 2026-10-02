@@ -152,6 +152,44 @@ public class TranscriptBuilderTests
         Assert.Equal(["R 1", "R 2"], result.Select(u => u.Speaker));
     }
 
+    [Fact]
+    public void Talker_keeps_words_said_while_someone_murmurs_underneath()
+    {
+        // Exclusive turns gave "get what" to whoever murmured; the overlapping ones show the talker never stopped.
+        var words = Words((0, 1, "if"), (1, 2, "people"), (2.0, 2.3, "get"), (2.3, 2.6, "what"), (2.6, 3.5, "matters"));
+        var exclusive = new List<SpeakerTurn> { new(0, 2.0, 0), new(2.0, 2.6, 1), new(2.6, 6, 0) };
+        var src = new SourceTranscript("R", SourceKind.Microphone, words, exclusive)
+        {
+            OverlappingTurns = [new(0, 6, 0), new(1.9, 2.7, 1)],
+        };
+        Assert.Equal("if people get what matters", Assert.Single(TranscriptBuilder.BuildForSource(src)).Text);
+    }
+
+    [Fact]
+    public void Overlap_where_one_person_takes_over_from_another_is_left_alone()
+    {
+        var words = Words((0, 1, "so"), (1, 2.6, "anyway"), (2.6, 3.2, "right"), (3.2, 5, "exactly"));
+        var exclusive = new List<SpeakerTurn> { new(0, 2.6, 0), new(2.6, 6, 1) };
+        var src = new SourceTranscript("R", SourceKind.Microphone, words, exclusive)
+        {
+            OverlappingTurns = [new(0, 3.0, 0), new(2.5, 6, 1)],
+        };
+        Assert.Equal(["R 1", "R 1", "R 2", "R 2"], TranscriptBuilder.AssignSpeakers(src));
+    }
+
+    [Fact]
+    public void Yeah_said_under_a_long_turn_stays_with_the_listener()
+    {
+        var words = Words((0, 1, "we"), (1, 2, "need"), (2.0, 2.3, "yeah"), (2.3, 3, "data"));
+        var exclusive = new List<SpeakerTurn> { new(0, 2.0, 0), new(2.0, 2.3, 1), new(2.3, 6, 0) };
+        var src = new SourceTranscript("R", SourceKind.Microphone, words, exclusive)
+        {
+            OverlappingTurns = [new(0, 6, 0), new(2.0, 2.3, 1)],
+        };
+        var u = Assert.Single(TranscriptBuilder.BuildForSource(src));
+        Assert.Equal(new Interjection("R 2", "we need".Length, "yeah"), Assert.Single(u.Interjections));
+    }
+
     [Theory]
     [InlineData("yep", true)]
     [InlineData(" Oh my God.", true)]

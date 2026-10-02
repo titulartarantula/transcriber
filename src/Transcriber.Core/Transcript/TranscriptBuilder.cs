@@ -166,7 +166,10 @@ public static partial class TranscriptBuilder
         int previous = -1;
         for (int i = 0; i < raw.Length; i++)
         {
-            raw[i] = SpeakerFor(source.Words[i], turns) ?? previous;
+            var word = source.Words[i];
+            // A "yeah" under someone's long turn is the listener's, so it can become an interjection.
+            int? floor = IsInterjection(word.Text) ? null : FloorHolder(word, source.OverlappingTurns);
+            raw[i] = floor ?? SpeakerFor(word, turns) ?? previous;
             previous = raw[i];
         }
         // Words before the first matched turn inherit the first speaker that does match.
@@ -241,6 +244,32 @@ public static partial class TranscriptBuilder
         if (pick is not { } p) return false;
         Array.Fill(raw, p.Speaker, p.From, p.To - p.From + 1);
         return true;
+    }
+
+    /// <summary>Shortest turn that can hold the floor.</summary>
+    internal const double MinFloorSeconds = 2.0;
+
+    /// <summary>How far another speaker's turn may stick out of the floor holder's and still count as inside it.</summary>
+    internal const double FloorToleranceSeconds = 0.25;
+
+    /// <summary>
+    /// Who held the floor when the word was said, if two people's turns overlap there and one person's long
+    /// turn contains all the others: someone said "mm-hmm" under the talker, and Whisper heard the talker.
+    /// Null where turns don't overlap, or where neither contains the other (one person taking over from another).
+    /// </summary>
+    private static int? FloorHolder(TimedWord word, IReadOnlyList<SpeakerTurn>? overlapping)
+    {
+        if (overlapping is null) return null;
+        var covering = overlapping.Where(t => Math.Min(word.End, t.End) - Math.Max(word.Start, t.Start) > 0).ToList();
+        if (covering.Select(t => t.Speaker).Distinct().Count() < 2) return null;
+
+        foreach (var holder in covering.Where(t => t.End - t.Start >= MinFloorSeconds).OrderByDescending(t => t.End - t.Start))
+        {
+            bool containsOthers = covering.All(t => t.Speaker == holder.Speaker
+                || (t.Start >= holder.Start - FloorToleranceSeconds && t.End <= holder.End + FloorToleranceSeconds));
+            if (containsOthers) return holder.Speaker;
+        }
+        return null;
     }
 
     /// <summary>The turn overlapping the word most, else the nearest turn within a second.</summary>

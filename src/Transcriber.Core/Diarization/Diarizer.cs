@@ -6,6 +6,10 @@ namespace Transcriber.Core.Diarization;
 /// <summary>A stretch of audio attributed to one anonymous speaker.</summary>
 public sealed record SpeakerTurn(double Start, double End, int Speaker);
 
+/// <param name="Turns">One speaker at a time.</param>
+/// <param name="Overlapping">The same speakers' turns allowed to overlap, when the diarizer reports them.</param>
+public sealed record DiarizationTurns(IReadOnlyList<SpeakerTurn> Turns, IReadOnlyList<SpeakerTurn>? Overlapping);
+
 /// <summary>Offline speaker diarization: pyannote segmentation plus embedding clustering, on the CPU.</summary>
 public static class Diarizer
 {

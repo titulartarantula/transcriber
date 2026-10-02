@@ -58,7 +58,7 @@ public sealed class WhisperClient : IDisposable
     /// <summary>Speaker turns from the server's diarization endpoint.</summary>
     /// <param name="expectedSpeakers">Known speaker count, or 0 to let the server estimate it.</param>
     /// <exception cref="DiarizationUnsupportedException">The server has no diarization endpoint.</exception>
-    public async Task<IReadOnlyList<SpeakerTurn>> DiarizeAsync(string audioPath, int expectedSpeakers, CancellationToken ct = default)
+    public async Task<DiarizationTurns> DiarizeAsync(string audioPath, int expectedSpeakers, CancellationToken ct = default)
     {
         using var form = new MultipartFormDataContent();
         form.Add(AudioContent(audioPath), "file", Path.GetFileName(audioPath));
@@ -71,7 +71,10 @@ public sealed class WhisperClient : IDisposable
 
         var result = await response.Content.ReadFromJsonAsync<DiarizationResult>(Json, ct)
             ?? throw new SttException("The server returned an empty diarization response.");
-        return result.Segments.Select(s => new SpeakerTurn(s.Start, s.End, s.Speaker)).OrderBy(t => t.Start).ToList();
+        static List<SpeakerTurn> Turns(List<DiarizationSegment> segments) =>
+            segments.Select(s => new SpeakerTurn(s.Start, s.End, s.Speaker)).OrderBy(t => t.Start).ToList();
+        // Servers before overlap_segments was added send only the exclusive turns.
+        return new DiarizationTurns(Turns(result.Segments), result.OverlapSegments is { } o ? Turns(o) : null);
     }
 
     public async Task<WhisperResult> TranscribeAsync(string audioPath, CancellationToken ct = default)
@@ -138,7 +141,7 @@ public sealed class WhisperClient : IDisposable
 
     private sealed record ModelEntry(string Id);
 
-    private sealed record DiarizationResult(List<DiarizationSegment> Segments);
+    private sealed record DiarizationResult(List<DiarizationSegment> Segments, List<DiarizationSegment>? OverlapSegments);
 
     private sealed record DiarizationSegment(double Start, double End, int Speaker);
 }
