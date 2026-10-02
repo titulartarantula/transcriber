@@ -26,6 +26,8 @@ its release and uses them as the GitHub release notes.
 
 ### Android
 
+## Android 0.3.1 - 2026-10-02
+
 - Transcripts that kept their audio have a **Share audio** button. It sends the original recording through
   Android's share sheet (Drive, Quick Share, email…) to get it off the phone.
 
