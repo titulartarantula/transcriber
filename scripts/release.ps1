@@ -13,6 +13,8 @@
        App Bundle (.aab) for Google Play, signed with the same key as its upload key.
     5. Tags <app>-v<version>, pushes the commit and tag together, and creates a GitHub release with the
        artifact attached and the changelog entries as notes.
+    6. Android: if a Play service account key is saved (./scripts/import-play-key.ps1), uploads the App
+       Bundle to Google Play's internal testing track with the changelog entries as release notes.
 
     If the build fails, the release commit is undone and nothing is pushed.
 
@@ -304,7 +306,21 @@ try {
         exit 1
     }
     Write-Host "Released $title" -ForegroundColor Green
-    if ($bundle) { Write-Host "Upload $bundle to the Play Console (Testing → Internal testing → Create new release)." }
+
+    if ($bundle) {
+        if (-not (Read-PlayKey)) {
+            Write-Host "Upload $bundle to the Play Console (Testing → Internal testing → Create new release)."
+            Write-Host 'To have releases do this, save a Play service account key with ./scripts/import-play-key.ps1.'
+        }
+        else {
+            Step 'Uploading to Google Play (internal testing)'
+            try { & (Join-Path $PSScriptRoot 'play-upload.ps1') $bundle -Notes $entries }
+            catch {
+                Write-Warning "The GitHub release is out but the Play upload failed: $_`nRetry with:`n  ./scripts/play-upload.ps1 `"$bundle`""
+                exit 1
+            }
+        }
+    }
 }
 catch {
     if ($committed) {

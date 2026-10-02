@@ -125,8 +125,17 @@ Only testers see it, but Play asks for it before the first rollout.
 - **Phone screenshots:** `docs/play/assets/screenshot-*.png` (at least two)
 - **App category:** Productivity. **Contact email:** titulartarantula@gmail.com (shown to testers).
 
-## Later
+## Automatic uploads
 
-Uploads can be automated from `release.ps1` with the Play Developer API. That needs a Google Cloud service
-account with release access in Play Console → Users and permissions. Worth doing once releases are routine;
-the first upload has to be manual anyway.
+With a service account key saved, `release.ps1 android` uploads the App Bundle to internal testing itself,
+with the changelog entries as release notes. One-time setup:
+
+1. [Google Cloud console](https://console.cloud.google.com): pick or create a project, then
+   APIs & Services → Library → **Google Play Android Developer API** → Enable.
+2. IAM & Admin → Service accounts → **Create service account** (e.g. `play-release`). It needs no Cloud roles.
+   Open it → Keys → Add key → Create new key → **JSON**.
+3. Play Console → **Users and permissions** → Invite new users: the service account's email
+   (`…@….iam.gserviceaccount.com`). Under App permissions add Transcriber with **Release to testing tracks**.
+4. `./scripts/import-play-key.ps1 <downloaded .json>`, then delete the downloaded file.
+
+`./scripts/play-upload.ps1 <bundle.aab>` uploads a bundle by hand, e.g. to retry a failed upload.

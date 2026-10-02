@@ -40,7 +40,17 @@ function Get-SigningPaths {
         Keystore     = Join-Path $dir 'transcriber-release.keystore'
         PasswordFile = Join-Path $dir 'password.dat'
         Alias        = 'transcriber'
+        PlayKeyFile  = Join-Path $dir 'play-key.dat'
     }
+}
+
+# The Google Play service account's JSON key, saved DPAPI-encrypted by ./scripts/import-play-key.ps1.
+# Null if there isn't one, so releases fall back to a manual upload.
+function Read-PlayKey {
+    $file = (Get-SigningPaths).PlayKeyFile
+    if (-not (Test-Path $file)) { return $null }
+    $secure = (Get-Content $file -Raw).Trim() | ConvertTo-SecureString
+    [System.Net.NetworkCredential]::new('', $secure).Password
 }
 
 function Read-SigningPassword {
