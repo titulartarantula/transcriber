@@ -5,6 +5,6 @@
   -->
   <PropertyGroup>
     <WindowsVersion>0.1.1</WindowsVersion>
-    <AndroidVersion>0.3.1</AndroidVersion>
+    <AndroidVersion>0.3.2</AndroidVersion>
   </PropertyGroup>
 </Project>

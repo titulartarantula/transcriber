@@ -30,6 +30,8 @@ its release and uses them as the GitHub release notes.
 
 ### Android
 
+## Android 0.3.2 - 2026-10-02
+
 - Short remarks like "yep" or "yeah okay" made while someone else is talking appear in that person's line
   as "(Speaker 2: yep)" instead of splitting it into separate turns.
 - Fewer sentences chopped between speakers when two people talk at once: a fragment under a second in the
