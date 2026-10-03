@@ -107,6 +107,35 @@ public sealed class JobQueueTests : IDisposable
     }
 
     [Fact]
+    public async Task Reprocess_can_change_how_many_voices_to_separate()
+    {
+        _runner.Settings.Speakers.ReviewNames = false;
+        _runner.Settings.Output.KeepAudio = true;
+        using var queue = NewQueue();
+        var job = queue.Enqueue(Record("a"), 0);
+        await WaitFor(queue, job.Id, j => j.State == JobState.Saved);
+
+        queue.Reprocess(job.Id, 2);
+        var again = await WaitFor(queue, job.Id, j => j.State == JobState.Saved && _runner.Transcribed.Count == 2);
+        Assert.Equal(2, _runner.ExpectedSpeakers[1]);
+        Assert.Equal(2, again.ExpectedSpeakers);
+
+        queue.Reprocess(job.Id, 1);
+        await WaitFor(queue, job.Id, j => j.State == JobState.Saved && _runner.Transcribed.Count == 3);
+        Assert.False(_runner.Transcribed[2].Sources.Single().Diarize);
+    }
+
+    [Fact]
+    public void Separating_voices_turns_it_on_for_a_recording_made_without()
+    {
+        var recording = new SessionRecording("t", DateTimeOffset.Now, TimeSpan.FromMinutes(1), "d",
+            [new RecordedSource("mic.aac", "Me", SourceKind.Microphone, false, "Mic")]);
+        var job = JobQueue.WithVoices(new TranscriptionJob("a", recording, 0, DateTimeOffset.Now), 3);
+        Assert.True(job.Recording.Sources.Single().Diarize);
+        Assert.Equal(3, job.ExpectedSpeakers);
+    }
+
+    [Fact]
     public async Task Cancelled_job_can_be_retried()
     {
         _runner.Block = true;

@@ -201,7 +201,21 @@ public partial class MainPage : ContentPage
 
     private void OnRetryJob(object? sender, EventArgs e) => _session.Queue.Retry(RowOf(sender).Id);
 
-    private void OnReprocessJob(object? sender, EventArgs e) => _session.Queue.Reprocess(RowOf(sender).Id);
+    /// <summary>Asks how many voices to separate, starting with what a new recording would use now.</summary>
+    private async void OnReprocessJob(object? sender, EventArgs e)
+    {
+        var row = RowOf(sender);
+        int current = !SplitSwitch.IsToggled ? 1 : _settings.Speakers.ExpectedSpeakers;
+        var choices = new[] { 0, 1 }.Concat(VoiceChoices.Skip(1).Select(int.Parse))
+            .OrderBy(n => n == current ? 0 : 1)
+            .ToList();
+        static string Describe(int n) => n switch { 0 => "Auto", 1 => "1 – don't separate", _ => $"{n} voices" };
+        var labels = choices.Select(n => n == current ? $"{Describe(n)} (current setting)" : Describe(n)).ToArray();
+
+        var pick = await DisplayActionSheetAsync($"Reprocess “{row.Title}”: how many voices?", "Cancel", null, labels);
+        int index = Array.IndexOf(labels, pick);
+        if (index >= 0) _session.Queue.Reprocess(row.Id, choices[index]);
+    }
 
     /// <summary>Hands the kept audio to Android's share sheet (Drive, Quick Share, email…) to get it off the phone.</summary>
     private async void OnShareAudio(object? sender, EventArgs e)

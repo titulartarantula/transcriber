@@ -300,7 +300,29 @@ public partial class MainWindow : FluentWindow
 
     private void OnRetryJob(object sender, RoutedEventArgs e) => _queue.Retry(ItemOf(sender).Id);
 
-    private void OnReprocessJob(object sender, RoutedEventArgs e) => _queue.Reprocess(ItemOf(sender).Id);
+    /// <summary>Asks how many voices to separate, with what a new recording would use now ticked.</summary>
+    private void OnReprocessJob(object sender, RoutedEventArgs e)
+    {
+        var id = ItemOf(sender).Id;
+        int current = _settings.Speakers.ExpectedSpeakers;
+        var menu = new System.Windows.Controls.ContextMenu
+        {
+            PlacementTarget = (UIElement)sender,
+            Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom,
+        };
+        menu.Items.Add(new System.Windows.Controls.MenuItem { Header = "Voices to separate", IsEnabled = false });
+        foreach (var n in new[] { 0, 1, 2, 3, 4, 5, 6, 8 })
+        {
+            var item = new System.Windows.Controls.MenuItem
+            {
+                Header = n switch { 0 => "Auto", 1 => "1 – don't separate", _ => $"{n} voices" },
+                IsChecked = n == current,
+            };
+            item.Click += (_, _) => _queue.Reprocess(id, n);
+            menu.Items.Add(item);
+        }
+        menu.IsOpen = true;
+    }
 
     private void OnCancelJob(object sender, RoutedEventArgs e) => _queue.Cancel(ItemOf(sender).Id);
 

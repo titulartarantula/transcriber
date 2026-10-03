@@ -124,12 +124,15 @@ public sealed class JobQueue : IDisposable
     }
 
     /// <summary>Transcribes a saved job's kept audio again with the current settings. The earlier note stays.</summary>
-    public void Reprocess(string id)
+    /// <param name="voices">
+    /// Voices to separate: 0 to estimate, 1 not to separate, or null to keep what it was recorded with.
+    /// </param>
+    public void Reprocess(string id, int? voices = null)
     {
         if (Find(id) is not { State: JobState.Saved, AudioKept: true } job) return;
 
         Quietly(() => _store.DeleteDraft(job));
-        Update(id, j => j with
+        Update(id, j => (voices is int v ? WithVoices(j, v) : j) with
         {
             State = JobState.Queued,
             Error = null,
@@ -139,6 +142,24 @@ public sealed class JobQueue : IDisposable
             NoteLocalPath = null,
         });
         _wake.Release();
+    }
+
+    /// <summary>
+    /// Sets how many voices to separate. 1 turns separation off for every source. Any other count keeps the
+    /// sources that were separated when recorded, or separates all of them if none were, as with a phone
+    /// recording made with "Split voices" off.
+    /// </summary>
+    internal static TranscriptionJob WithVoices(TranscriptionJob job, int voices)
+    {
+        var sources = job.Recording.Sources;
+        sources = voices == 1 ? sources.Select(s => s with { Diarize = false }).ToList()
+            : sources.Any(s => s.Diarize) ? sources
+            : sources.Select(s => s with { Diarize = true }).ToList();
+        return job with
+        {
+            ExpectedSpeakers = voices > 1 ? voices : 0,
+            Recording = job.Recording with { Sources = sources },
+        };
     }
 
     /// <summary>The speakers of a job waiting for names, or null if it isn't.</summary>

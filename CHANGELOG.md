@@ -8,7 +8,13 @@ its release and uses them as the GitHub release notes.
 
 ### Windows
 
+- **Reprocess** asks how many voices to separate (Auto, 1 – don't separate, 2…8), with the current
+  setting ticked, instead of reusing what the recording was made with.
+
 ### Android
+
+- **Reprocess** asks how many voices to separate (Auto, 1 – don't separate, 2…8), with what a new
+  recording would use listed first, instead of reusing what the recording was made with.
 
 ## Windows 0.2.2 - 2026-10-02
 
