@@ -12,6 +12,8 @@ its release and uses them as the GitHub release notes.
 
 ### Android
 
+## Android 0.3.6 - 2026-10-03
+
 - The text cursor is easy to see in dark mode. It was drawn in a dark indigo (1.3:1 against the
   background); it, the selection handles and the focused field's underline are now a brighter blue.
 - Placeholder text, card outlines and the Delete button meet contrast guidelines in both themes.
