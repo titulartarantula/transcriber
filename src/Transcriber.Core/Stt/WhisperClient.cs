@@ -88,12 +88,22 @@ public sealed class WhisperClient : IDisposable
         form.Add(new StringContent("0"), "temperature");
         if (_settings.VadFilter) form.Add(new StringContent("true"), "vad_filter");
         if (!string.IsNullOrWhiteSpace(_settings.Language)) form.Add(new StringContent(_settings.Language.Trim()), "language");
-        if (!string.IsNullOrWhiteSpace(_settings.Prompt)) form.Add(new StringContent(_settings.Prompt.Trim()), "prompt");
+        form.Add(new StringContent(Prompt(_settings.Prompt)), "prompt");
 
         using var response = await PostAsync("v1/audio/transcriptions", form, ct);
         await EnsureSuccess(response, ct);
         return await response.Content.ReadFromJsonAsync<WhisperResult>(Json, ct)
             ?? throw new SttException("The STT server returned an empty response.");
+    }
+
+    /// <summary>
+    /// A punctuated opening, then the user's names and jargon. Whisper copies the style of the text before it,
+    /// and a recording that starts casually mid-sentence otherwise comes back with no punctuation or capitals.
+    /// </summary>
+    internal static string Prompt(string? names)
+    {
+        const string LeadIn = "Hello, everyone. Thanks for coming; let's get started.";
+        return string.IsNullOrWhiteSpace(names) ? LeadIn : $"{LeadIn} {names.Trim()}";
     }
 
     private static StreamContent AudioContent(string audioPath)

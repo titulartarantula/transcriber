@@ -175,7 +175,11 @@ public static partial class TranscriptBuilder
         // Words before the first matched turn inherit the first speaker that does match.
         int first = raw.FirstOrDefault(r => r >= 0, -1);
         for (int i = 0; i < raw.Length && raw[i] < 0; i++) raw[i] = first;
+        // A token with no space before it is the rest of the previous word: "Mm" "-hmm."
+        for (int i = 1; i < raw.Length; i++)
+            if (source.Words[i].Text.Length > 0 && !char.IsWhiteSpace(source.Words[i].Text[0])) raw[i] = raw[i - 1];
         AbsorbSlivers(raw, source.Words);
+        SnapToSentences(raw, source.Words);
 
         var order = new Dictionary<int, int>();
         foreach (var r in raw)
@@ -244,6 +248,63 @@ public static partial class TranscriptBuilder
         if (pick is not { } p) return false;
         Array.Fill(raw, p.Speaker, p.From, p.To - p.From + 1);
         return true;
+    }
+
+    /// <summary>Most words a speaker change moves to reach a sentence break.</summary>
+    internal const int MaxSnapWords = 3;
+
+    /// <summary>
+    /// Moves a speaker change that falls mid-sentence to the nearest sentence break up to
+    /// <see cref="MaxSnapWords"/> words away: "wrong with people? And why | do I feel" becomes "wrong with
+    /// people? | And why do I feel". Diarization and word timings disagree by a word or two at the edges of
+    /// turns, and Whisper's punctuation knows where sentences start. Only changes into a word that doesn't
+    /// start a sentence move, so someone cutting in ("So we | Yes, exactly.") stays where they cut in.
+    /// Without punctuation there are no sentence breaks and nothing moves.
+    /// </summary>
+    private static void SnapToSentences(int[] raw, IReadOnlyList<TimedWord> words)
+    {
+        for (int k = 1; k < raw.Length; k++)
+        {
+            if (raw[k - 1] == raw[k] || StartsSentence(words[k].Text) || EndsSentence(words[k - 1].Text)) continue;
+
+            // The runs either side of the change. A snap moves a whole run only if the other speaker is on both
+            // sides of it, as with "(Mm-hmm.) This | is a big assumption", where the remark cut off one word.
+            int runStart = k - 1;
+            while (runStart > 0 && raw[runStart - 1] == raw[k - 1]) runStart--;
+            int runEnd = k;
+            while (runEnd + 1 < raw.Length && raw[runEnd + 1] == raw[k]) runEnd++;
+            int earliest = runStart > 0 && raw[runStart - 1] == raw[k] ? runStart : runStart + 1;
+            int latest = runEnd + 1 < raw.Length && raw[runEnd + 1] == raw[k - 1] ? runEnd + 1 : runEnd;
+
+            for (int d = 1; d <= MaxSnapWords; d++)
+            {
+                // An earlier break: the words after it start the next speaker's sentence.
+                int back = k - d;
+                if (back >= earliest && EndsSentence(words[back - 1].Text))
+                {
+                    Array.Fill(raw, raw[k], back, k - back);
+                    break;
+                }
+                // A later break: the words before it finish the previous speaker's sentence.
+                int ahead = k + d;
+                if (ahead <= latest && EndsSentence(words[ahead - 1].Text))
+                {
+                    Array.Fill(raw, raw[k - 1], k, ahead - k);
+                    k = ahead - 1;
+                    break;
+                }
+            }
+        }
+    }
+
+    private static bool EndsSentence(string word) => word.TrimEnd().TrimEnd('"', '\'', ')', '”', '’') is [.., '.' or '?' or '!' or '…'];
+
+    /// <summary>A capital that isn't "I" (or "I'm", "I'll"...), which Whisper capitalises mid-sentence too.</summary>
+    private static bool StartsSentence(string word)
+    {
+        var w = word.TrimStart().TrimStart('"', '\'', '(', '“', '‘');
+        if (w.Length == 0 || !char.IsUpper(w[0])) return false;
+        return !(w == "I" || w.StartsWith("I'") || w.StartsWith("I’") || (w.Length > 1 && w[0] == 'I' && !char.IsLetter(w[1])));
     }
 
     /// <summary>Shortest turn that can hold the floor.</summary>

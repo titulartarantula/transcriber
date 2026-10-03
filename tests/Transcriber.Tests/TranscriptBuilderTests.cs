@@ -190,6 +190,35 @@ public class TranscriptBuilderTests
         Assert.Equal(new Interjection("R 2", "we need".Length, "yeah"), Assert.Single(u.Interjections));
     }
 
+    [Fact]
+    public void Speaker_change_mid_sentence_moves_to_the_sentence_break()
+    {
+        // Diarization switched speakers two words late.
+        var words = Words((0, 0.5, "wrong", 0), (0.5, 1.0, "people?", 0), (1.0, 1.3, "And", 1), (1.3, 1.6, "why", 1),
+            (1.6, 1.9, "do", 1), (1.9, 2.2, "I", 1), (2.2, 2.6, "care?", 1));
+        var turns = new List<SpeakerTurn> { new(0, 1.6, 0), new(1.6, 3, 1) };
+        var result = TranscriptBuilder.BuildForSource(new SourceTranscript("R", SourceKind.Microphone, words, turns));
+        Assert.Equal(["wrong people?", "And why do I care?"], result.Select(u => u.Text));
+    }
+
+    [Fact]
+    public void Someone_cutting_in_keeps_their_place()
+    {
+        var words = Words((0, 0.5, "Done.", 0), (0.5, 1.0, "So", 0), (1.0, 1.3, "we", 0), (1.3, 1.8, "Yes,", 1), (1.8, 2.4, "exactly.", 1));
+        var turns = new List<SpeakerTurn> { new(0, 1.3, 0), new(1.3, 3, 1) };
+        var result = TranscriptBuilder.BuildForSource(new SourceTranscript("R", SourceKind.Microphone, words, turns));
+        Assert.Equal(["Done. So we", "Yes, exactly."], result.Select(u => u.Text));
+    }
+
+    [Fact]
+    public void Word_split_into_two_tokens_stays_with_one_speaker()
+    {
+        var words = new List<TimedWord> { new(0, 1, " Sure", 0), new(1, 1.4, " Mm", 1), new(1.4, 1.8, "-hmm.", 1), new(1.8, 3, " Then", 1) };
+        var turns = new List<SpeakerTurn> { new(0, 1.0, 0), new(1.0, 1.4, 1), new(1.4, 1.8, 0), new(1.8, 3, 1) };
+        var labels = TranscriptBuilder.AssignSpeakers(new SourceTranscript("R", SourceKind.Microphone, words, turns));
+        Assert.Equal(labels[1], labels[2]);
+    }
+
     [Theory]
     [InlineData("yep", true)]
     [InlineData(" Oh my God.", true)]
