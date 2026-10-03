@@ -13,7 +13,7 @@
         <ScrollView Grid.Row="0">
             <VerticalStackLayout Padding="20,8,20,20" Spacing="0">
 
-                <Entry x:Name="TitleEntry" Placeholder="Title for this recording (optional)" Margin="0,4,0,0" />
+                <Entry x:Name="TitleEntry" SemanticProperties.Hint="Recording title" Placeholder="Title for this recording (optional)" Margin="0,4,0,0" />
 
                 <Label Style="{StaticResource Section}" Text="MICROPHONE" />
                 <Border Style="{StaticResource Card}">
@@ -32,17 +32,17 @@
                                 <Label Text="Split voices" />
                                 <Label Style="{StaticResource Hint}" Text="Detect each person in the room and label them separately" />
                             </VerticalStackLayout>
-                            <Switch x:Name="SplitSwitch" Grid.Column="1" VerticalOptions="Center" Toggled="OnSplitToggled" />
+                            <Switch SemanticProperties.Description="Split voices" x:Name="SplitSwitch" Grid.Column="1" VerticalOptions="Center" Toggled="OnSplitToggled" />
                         </Grid>
                         <Grid ColumnDefinitions="*,120" ColumnSpacing="12" Margin="0,8,0,0">
                             <VerticalStackLayout VerticalOptions="Center">
                                 <Label Text="Number of voices" />
                                 <Label Style="{StaticResource Hint}" Text="Set it if you know it; Auto estimates" />
                             </VerticalStackLayout>
-                            <Picker x:Name="VoicesPicker" Grid.Column="1" SelectedIndexChanged="OnVoicesChanged" />
+                            <Picker SemanticProperties.Description="Number of voices" x:Name="VoicesPicker" Grid.Column="1" SelectedIndexChanged="OnVoicesChanged" />
                         </Grid>
                         <Label Style="{StaticResource FieldLabel}" Text="Label" />
-                        <Entry x:Name="LabelEntry" Placeholder="Speaker" />
+                        <Entry SemanticProperties.Hint="Label" x:Name="LabelEntry" Placeholder="Speaker" />
                         <Label Style="{StaticResource Hint}" x:Name="LabelHint" Text="Voices become Speaker 1, Speaker 2, … and you can name them before saving." />
                     </VerticalStackLayout>
                 </Border>
@@ -79,7 +79,7 @@
                                                 BackgroundColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}"
                                                 TextColor="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource White}}" />
                                         <Button Text="{Binding RemoveText}" Clicked="OnRemoveJob" IsVisible="{Binding CanRemove}" Margin="0,6,8,0"
-                                                BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+                                                BackgroundColor="Transparent" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                                     </FlexLayout>
                                 </Grid>
                             </Border>

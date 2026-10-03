@@ -22,7 +22,7 @@
             <Style x:Key="Hint" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="12" />
                 <Setter Property="TextWrapping" Value="Wrap" />
-                <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
             </Style>
 
             <Style x:Key="FieldLabel" TargetType="TextBlock">

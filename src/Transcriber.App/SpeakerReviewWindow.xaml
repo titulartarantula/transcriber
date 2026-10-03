@@ -39,7 +39,7 @@
                                     <TextBlock FontWeight="SemiBold">
                                         <Run Text="{Binding Speaker, Mode=OneWay}" />
                                         <Run Text="{Binding TalkTime, Mode=OneWay}" FontWeight="Normal"
-                                             Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                                             Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                     </TextBlock>
                                     <TextBlock Text="{Binding Sample}" TextWrapping="Wrap" FontStyle="Italic" Margin="0,6,0,0"
                                                Foreground="{DynamicResource TextFillColorSecondaryBrush}" />

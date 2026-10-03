@@ -15,6 +15,7 @@ public static class MauiProgram
         AudioConvert.ExternalDecoder = path => new MediaCodecReader(path);
         ProductInfo.Client = $"Transcriber for Android {BuildInfo.From(typeof(MauiProgram).Assembly).Version}";
         NoteDestinations.FolderFactory = uri => new PhoneFolderDestination(uri);
+        TextFieldColors.Register();
 
         var builder = MauiApp.CreateBuilder();
         builder

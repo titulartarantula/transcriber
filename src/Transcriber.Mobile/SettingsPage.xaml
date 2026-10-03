@@ -17,26 +17,26 @@
                 <VerticalStackLayout>
                     <Label Style="{StaticResource Hint}" Text="Any OpenAI-compatible transcription server: faster-whisper-server, Speaches, LocalAI or OpenAI." />
                     <Label Style="{StaticResource FieldLabel}" Text="Server URL" />
-                    <Entry x:Name="SttUrl" Placeholder="http://192.168.1.100:8000" Keyboard="Url" />
+                    <Entry SemanticProperties.Hint="Server URL" x:Name="SttUrl" Placeholder="http://192.168.1.100:8000" Keyboard="Url" />
                     <Label Style="{StaticResource FieldLabel}" Text="API key (blank if none)" />
-                    <Entry x:Name="SttKey" IsPassword="True" Placeholder="Optional" />
+                    <Entry SemanticProperties.Hint="API key (blank if none)" x:Name="SttKey" IsPassword="True" Placeholder="Optional" />
                     <Label Style="{StaticResource FieldLabel}" Text="Model" />
-                    <Entry x:Name="SttModel" />
+                    <Entry SemanticProperties.Hint="Model" x:Name="SttModel" />
                     <Button Text="Test and choose model" Margin="0,10,0,0" Clicked="OnTestStt" />
                     <Label x:Name="SttResult" Style="{StaticResource Hint}" Margin="0,6,0,0" IsVisible="False" />
                     <Grid ColumnDefinitions="110,*" ColumnSpacing="12">
                         <VerticalStackLayout>
                             <Label Style="{StaticResource FieldLabel}" Text="Language" />
-                            <Entry x:Name="SttLanguage" Placeholder="Auto" />
+                            <Entry SemanticProperties.Hint="Language" x:Name="SttLanguage" Placeholder="Auto" />
                         </VerticalStackLayout>
                         <VerticalStackLayout Grid.Column="1">
                             <Label Style="{StaticResource FieldLabel}" Text="Vocabulary hint" />
-                            <Entry x:Name="SttPrompt" Placeholder="Names, jargon" />
+                            <Entry SemanticProperties.Hint="Vocabulary hint" x:Name="SttPrompt" Placeholder="Names, jargon" />
                         </VerticalStackLayout>
                     </Grid>
                     <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
                         <Label Text="Skip silence before transcribing" VerticalOptions="Center" />
-                        <Switch x:Name="SttVad" Grid.Column="1" />
+                        <Switch SemanticProperties.Description="Skip silence before transcribing" x:Name="SttVad" Grid.Column="1" />
                     </Grid>
                 </VerticalStackLayout>
             </Border>
@@ -58,7 +58,7 @@
                 <VerticalStackLayout>
                     <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
                         <Label Text="Separate voices on the server when it can" VerticalOptions="Center" />
-                        <Switch x:Name="UseServer" Grid.Column="1" />
+                        <Switch SemanticProperties.Description="Separate voices on the server when it can" x:Name="UseServer" Grid.Column="1" />
                     </Grid>
                     <Label Style="{StaticResource Hint}" Margin="0,0,0,12"
                            Text="A server set up with pyannote does it on its GPU: faster, more accurate, and easier on the battery. Otherwise the phone does it, which downloads about 32 MB of models the first time." />
@@ -70,7 +70,7 @@
                     </Grid>
                     <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
                         <Label Text="Name speakers before saving" VerticalOptions="Center" />
-                        <Switch x:Name="ReviewNames" Grid.Column="1" />
+                        <Switch SemanticProperties.Description="Name speakers before saving" x:Name="ReviewNames" Grid.Column="1" />
                     </Grid>
                 </VerticalStackLayout>
             </Border>
@@ -85,7 +85,7 @@
 
                     <VerticalStackLayout x:Name="McpPanel">
                         <Label Style="{StaticResource FieldLabel}" Text="MCP server URL" />
-                        <Entry x:Name="McpUrl" Placeholder="https://obsidian-mcp.example.com/mcp" Keyboard="Url" TextChanged="OnMcpUrlChanged" />
+                        <Entry SemanticProperties.Hint="MCP server URL" x:Name="McpUrl" Placeholder="https://obsidian-mcp.example.com/mcp" Keyboard="Url" TextChanged="OnMcpUrlChanged" />
                         <Label x:Name="McpStatus" Margin="0,10,0,0" />
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,8,0,0">
                             <Button x:Name="McpSignIn" Text="Sign in" Clicked="OnMcpSignIn" />
@@ -97,9 +97,9 @@
 
                     <VerticalStackLayout x:Name="RestPanel">
                         <Label Style="{StaticResource FieldLabel}" Text="REST API URL" />
-                        <Entry x:Name="RestUrl" Placeholder="https://192.168.1.100:27124" Keyboard="Url" />
+                        <Entry SemanticProperties.Hint="REST API URL" x:Name="RestUrl" Placeholder="https://192.168.1.100:27124" Keyboard="Url" />
                         <Label Style="{StaticResource FieldLabel}" Text="API key" />
-                        <Entry x:Name="RestKey" IsPassword="True" Placeholder="From the Local REST API plugin settings" />
+                        <Entry SemanticProperties.Hint="API key" x:Name="RestKey" IsPassword="True" Placeholder="From the Local REST API plugin settings" />
                         <Grid x:Name="PinRow" ColumnDefinitions="*,Auto" Margin="0,8,0,0" IsVisible="False">
                             <Label x:Name="PinText" Style="{StaticResource Hint}" VerticalOptions="Center" />
                             <Button Grid.Column="1" Text="Forget" Clicked="OnForgetCertificate" />
@@ -108,7 +108,7 @@
 
                     <VerticalStackLayout x:Name="VaultPanel">
                         <Label Style="{StaticResource FieldLabel}" Text="Folder in vault" />
-                        <Entry x:Name="VaultFolder" Placeholder="Transcripts" />
+                        <Entry SemanticProperties.Hint="Folder in vault" x:Name="VaultFolder" Placeholder="Transcripts" />
                         <Button Text="Test connection" Margin="0,10,0,0" Clicked="OnTestVault" />
                         <Label x:Name="VaultResult" Style="{StaticResource Hint}" Margin="0,6,0,0" IsVisible="False" />
                     </VerticalStackLayout>
@@ -122,17 +122,17 @@
 
                     <BoxView HeightRequest="1" Margin="0,16,0,4" Color="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}" />
                     <Label Style="{StaticResource FieldLabel}" Text="File name" />
-                    <Entry x:Name="FileNameTemplate" Placeholder="{}{date} {time} {title}" />
+                    <Entry SemanticProperties.Hint="File name" x:Name="FileNameTemplate" Placeholder="{}{date} {time} {title}" />
                     <Label Style="{StaticResource Hint}" Text="Tokens: {date} {time} {title}" />
                     <Label Style="{StaticResource FieldLabel}" Text="Tags" />
-                    <Entry x:Name="Tags" Placeholder="transcript, meeting" />
+                    <Entry SemanticProperties.Hint="Tags" x:Name="Tags" Placeholder="transcript, meeting" />
                     <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
                         <Label Text="Write speakers as [[links]]" VerticalOptions="Center" />
-                        <Switch x:Name="LinkSpeakers" Grid.Column="1" />
+                        <Switch SemanticProperties.Description="Write speakers as [[links]]" x:Name="LinkSpeakers" Grid.Column="1" />
                     </Grid>
                     <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
                         <Label Text="Keep audio to reprocess later" VerticalOptions="Center" />
-                        <Switch x:Name="KeepAudio" Grid.Column="1" />
+                        <Switch SemanticProperties.Description="Keep audio to reprocess later" x:Name="KeepAudio" Grid.Column="1" />
                     </Grid>
                     <Label Style="{StaticResource Hint}"
                            Text="About 21 MB per hour, stored in the app. Delete recordings from the transcript list." />

@@ -146,7 +146,7 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <ui:SymbolIcon Symbol="LockClosed16" Margin="0,0,6,0" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                 <TextBlock x:Name="PinText" Grid.Column="1" Style="{StaticResource Hint}" VerticalAlignment="Center"
                                            FontFamily="Cascadia Mono, Consolas" />
                                 <ui:Button Grid.Column="2" Content="Forget" Appearance="Transparent" Padding="8,2" Margin="6,0,0,0"

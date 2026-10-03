@@ -8,7 +8,15 @@ its release and uses them as the GitHub release notes.
 
 ### Windows
 
+- Hint and secondary text is easier to read in the light theme (6:1 contrast, was 3.3:1).
+
 ### Android
+
+- The text cursor is easy to see in dark mode. It was drawn in a dark indigo (1.3:1 against the
+  background); it, the selection handles and the focused field's underline are now a brighter blue.
+- Placeholder text, card outlines and the Delete button meet contrast guidelines in both themes.
+- TalkBack reads every setting's name: text fields, switches and pickers were announced without their
+  labels. Section titles are headings.
 
 ## Windows 0.2.3 - 2026-10-03
 
