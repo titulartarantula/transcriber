@@ -8,13 +8,15 @@ its release and uses them as the GitHub release notes.
 
 ### Windows
 
+### Android
+
+## Windows 0.2.2 - 2026-10-02
+
 - Transcripts have punctuation and capitals again. Whisper copies the style of what comes before it, so a
   recording that started casually came back as one long lowercase run; it's now always given a punctuated
   opening, followed by your names and jargon.
 - A speaker change that lands a word or two into someone's sentence moves to the sentence break.
 - A word Whisper splits in two ("Mm" "-hmm") stays with one speaker.
-
-### Android
 
 ## Android 0.3.4 - 2026-10-02
 
