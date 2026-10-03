@@ -4,7 +4,7 @@
     only if you know why. Android's versionCode is derived: MAJOR*10000 + MINOR*100 + PATCH.
   -->
   <PropertyGroup>
-    <WindowsVersion>0.2.2</WindowsVersion>
+    <WindowsVersion>0.2.3</WindowsVersion>
     <AndroidVersion>0.3.5</AndroidVersion>
   </PropertyGroup>
 </Project>

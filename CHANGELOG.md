@@ -8,10 +8,12 @@ its release and uses them as the GitHub release notes.
 
 ### Windows
 
+### Android
+
+## Windows 0.2.3 - 2026-10-03
+
 - **Reprocess** asks how many voices to separate (Auto, 1 – don't separate, 2…8), with the current
   setting ticked, instead of reusing what the recording was made with.
-
-### Android
 
 ## Android 0.3.5 - 2026-10-03
 
