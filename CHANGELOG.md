@@ -8,9 +8,11 @@ its release and uses them as the GitHub release notes.
 
 ### Windows
 
-- Hint and secondary text is easier to read in the light theme (6:1 contrast, was 3.3:1).
-
 ### Android
+
+## Windows 0.2.4 - 2026-10-03
+
+- Hint and secondary text is easier to read in the light theme (6:1 contrast, was 3.3:1).
 
 ## Android 0.3.6 - 2026-10-03
 
