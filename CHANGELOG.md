@@ -13,6 +13,8 @@ its release and uses them as the GitHub release notes.
 
 ### Android
 
+## Android 0.3.5 - 2026-10-03
+
 - **Reprocess** asks how many voices to separate (Auto, 1 – don't separate, 2…8), with what a new
   recording would use listed first, instead of reusing what the recording was made with.
 
