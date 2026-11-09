@@ -50,6 +50,8 @@ public sealed class JobItem(TranscriptionJob job) : INotifyPropertyChanged
 
     public bool CanCancel => _job.CanCancel;
 
+    public bool CanRename => _job.CanRename;
+
     public bool CanRetry => _job.CanRetry;
 
     public bool CanOpen => _job.State == JobState.Saved && File.Exists(_job.NoteLocalPath);

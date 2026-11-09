@@ -1,4 +1,5 @@
 using Transcriber.Core.Audio;
+using Transcriber.Core.Output;
 using Transcriber.Core.Pipeline;
 using Transcriber.Core.Settings;
 using Transcriber.Core.Transcript;
@@ -127,12 +128,21 @@ public sealed class JobQueue : IDisposable
     /// <param name="voices">
     /// Voices to separate: 0 to estimate, 1 not to separate, or null to keep what it was recorded with.
     /// </param>
-    public void Reprocess(string id, int? voices = null)
+    public void Reprocess(string id, int? voices = null) =>
+        Reprocess(id, j => voices is int v ? WithVoices(j, v) : j);
+
+    /// <summary>
+    /// Like <see cref="Reprocess(string, int?)"/>, but with the number of people on the call, including the
+    /// user: 0 to estimate, 1 not to separate. Goes through <see cref="SpeakerCount"/> like a new recording.
+    /// </summary>
+    public void ReprocessForPeople(string id, int people) => Reprocess(id, j => WithPeople(j, people));
+
+    private void Reprocess(string id, Func<TranscriptionJob, TranscriptionJob> change)
     {
         if (Find(id) is not { State: JobState.Saved, AudioKept: true } job) return;
 
         Quietly(() => _store.DeleteDraft(job));
-        Update(id, j => (voices is int v ? WithVoices(j, v) : j) with
+        Update(id, j => change(j) with
         {
             State = JobState.Queued,
             Error = null,
@@ -160,6 +170,39 @@ public sealed class JobQueue : IDisposable
             ExpectedSpeakers = voices > 1 ? voices : 0,
             Recording = job.Recording with { Sources = sources },
         };
+    }
+
+    /// <summary>
+    /// <see cref="WithVoices"/> for a count of everyone on the call: picks which sources to separate the same
+    /// way, then takes the known speakers off the total. The stored count is always recomputed from the
+    /// people given here, never from the job's old count, so it can't be adjusted twice.
+    /// </summary>
+    internal static TranscriptionJob WithPeople(TranscriptionJob job, int people)
+    {
+        var changed = WithVoices(job, people);
+        return changed with
+        {
+            ExpectedSpeakers = people > 1 ? SpeakerCount.PerDiarizedSource(people, changed.Recording.Sources) : 0,
+        };
+    }
+
+    /// <summary>
+    /// Changes the title of a job whose note hasn't started saving. The recording folder and audio keep their
+    /// names (they never contained the title); the note is named and headed from the new title when it's saved.
+    /// </summary>
+    /// <returns>False if the job is gone or already saving or saved.</returns>
+    public bool Rename(string id, string title)
+    {
+        var clean = FileNames.CleanTitle(title);
+        bool renamed = false;
+        // Checked inside the update, under the lock, so it can't race the switch to Saving.
+        Update(id, j =>
+        {
+            if (!j.CanRename) return j;
+            renamed = true;
+            return j.Recording.Title == clean ? j : j with { Recording = j.Recording with { Title = clean } };
+        });
+        return renamed;
     }
 
     /// <summary>The speakers of a job waiting for names, or null if it isn't.</summary>

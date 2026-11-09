@@ -47,7 +47,8 @@ public sealed class TranscriptionPipeline(AppSettings settings, SpeakerReview? r
     /// <summary>Both halves back to back, asking <c>review</c> for names in between.</summary>
     public async Task<PipelineResult> RunAsync(SessionRecording recording, IProgress<string> progress, CancellationToken ct)
     {
-        var draft = await TranscribeAsync(recording, settings.Speakers.ExpectedSpeakers, progress, ct);
+        var voices = SpeakerCount.PerDiarizedSource(settings.Speakers.ExpectedSpeakers, recording.Sources);
+        var draft = await TranscribeAsync(recording, voices, progress, ct);
 
         IReadOnlyDictionary<string, string>? names = null;
         var summaries = Summarize(draft);

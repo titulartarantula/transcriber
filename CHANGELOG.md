@@ -8,7 +8,19 @@ its release and uses them as the GitHub release notes.
 
 ### Windows
 
+- Calls no longer come back with one speaker too many. The speaker box now asks for **People on the call
+  (including you)**, and since your microphone is one of them, the call audio is split into one fewer voice
+  (4 people on the call → 3 voices on Remote). **Reprocess** asks the same question. With more than one
+  source set to split voices, the total can't be divided between them, so each is estimated.
+- You can rename a recording after you stop it: **Rename** in the transcript list changes the title until
+  its note is saved, and the note's file name and heading use the new title. The title box can also be
+  changed while recording; what's in it when you press Stop is used.
+- A title that Windows can't use as a file name, like "CON" or "NUL", gets a "_" added instead of failing.
+
 ### Android
+
+- A title that Windows can't use as a file name, like "CON" or "NUL", gets a "_" added to the note's
+  file name, so the note still opens when the vault is synced to a PC.
 
 ## Windows 0.2.4 - 2026-10-03
 

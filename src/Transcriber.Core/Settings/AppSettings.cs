@@ -57,7 +57,10 @@ public sealed class SpeakerSettings
     /// </summary>
     public bool UseServer { get; set; } = true;
 
-    /// <summary>Speakers per diarized source, or 0 to estimate.</summary>
+    /// <summary>
+    /// People on the call, including the user, or 0 to estimate. Windows takes one off for each source that
+    /// isn't diarized (see <see cref="Pipeline.SpeakerCount"/>); the phone records one source, so it's the same.
+    /// </summary>
     public int ExpectedSpeakers { get; set; }
 
     /// <summary>On-device clustering distance used when the speaker count is estimated. Higher merges more.</summary>

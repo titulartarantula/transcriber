@@ -125,6 +125,119 @@ public sealed class JobQueueTests : IDisposable
         Assert.False(_runner.Transcribed[2].Sources.Single().Diarize);
     }
 
+    /// <summary>A desktop call: "Me" on the mic, not split, and "Remote" on system audio, split.</summary>
+    private SessionRecording RecordCall(string name)
+    {
+        var dir = Path.Combine(_root, name);
+        Directory.CreateDirectory(dir);
+        var mic = Path.Combine(dir, "source1-Microphone.wav");
+        var remote = Path.Combine(dir, "source2-SystemAudio.wav");
+        foreach (var raw in new[] { mic, remote })
+        {
+            File.WriteAllText(raw, "raw");
+            File.WriteAllText(Path.Combine(dir, Path.GetFileNameWithoutExtension(raw) + "-16k.wav"), "16k");
+        }
+        return new SessionRecording(name, DateTimeOffset.Now, TimeSpan.FromMinutes(1), dir,
+        [
+            new RecordedSource(mic, "Me", SourceKind.Microphone, false, "Headset"),
+            new RecordedSource(remote, "Remote", SourceKind.SystemAudio, true, "Speakers"),
+        ]);
+    }
+
+    [Fact]
+    public async Task Reprocess_counts_the_people_on_the_call_like_a_new_recording()
+    {
+        _runner.Settings.Speakers.ReviewNames = false;
+        _runner.Settings.Output.KeepAudio = true;
+        using var queue = NewQueue();
+        var recording = RecordCall("a");
+        var job = queue.Enqueue(recording, SpeakerCount.PerDiarizedSource(4, recording.Sources));
+        await WaitFor(queue, job.Id, j => j.State == JobState.Saved);
+        Assert.Equal(3, _runner.ExpectedSpeakers[0]);
+
+        // 4 people, one of them on the mic: the server is asked for 3 on Remote, not 4.
+        queue.ReprocessForPeople(job.Id, 4);
+        var again = await WaitFor(queue, job.Id, j => j.State == JobState.Saved && _runner.Transcribed.Count == 2);
+        Assert.Equal(3, _runner.ExpectedSpeakers[1]);
+        Assert.Equal(3, again.ExpectedSpeakers);
+        Assert.Equal([false, true], _runner.Transcribed[1].Sources.Select(s => s.Diarize));
+
+        // Reprocessing without a new count reuses the stored one as it is, without taking the mic off again.
+        queue.Reprocess(job.Id);
+        await WaitFor(queue, job.Id, j => j.State == JobState.Saved && _runner.Transcribed.Count == 3);
+        Assert.Equal(3, _runner.ExpectedSpeakers[2]);
+
+        queue.ReprocessForPeople(job.Id, 0);
+        await WaitFor(queue, job.Id, j => j.State == JobState.Saved && _runner.Transcribed.Count == 4);
+        Assert.Equal(0, _runner.ExpectedSpeakers[3]);
+
+        queue.ReprocessForPeople(job.Id, 1);
+        await WaitFor(queue, job.Id, j => j.State == JobState.Saved && _runner.Transcribed.Count == 5);
+        Assert.Equal(0, _runner.ExpectedSpeakers[4]);
+        Assert.All(_runner.Transcribed[4].Sources, s => Assert.False(s.Diarize));
+    }
+
+    [Fact]
+    public async Task A_job_saved_with_a_per_source_count_keeps_it()
+    {
+        // Before the box asked for everyone on the call, 3 meant 3 voices on Remote, and was stored that way.
+        _runner.Settings.Speakers.ReviewNames = false;
+        var recording = RecordCall("old");
+        var store = new JobStore(_root);
+        store.Save(new TranscriptionJob("old", recording, 3, DateTimeOffset.Now) { State = JobState.Failed, Error = "x" });
+
+        using var queue = NewQueue();
+        queue.Retry("old");
+        await WaitFor(queue, "old", j => j.State == JobState.Saved);
+        Assert.Equal(3, _runner.ExpectedSpeakers.Single());
+    }
+
+    [Fact]
+    public void Counting_people_with_two_split_sources_leaves_it_to_estimate()
+    {
+        var recording = RecordCall("b");
+        recording = recording with { Sources = recording.Sources.Select(s => s with { Diarize = true }).ToList() };
+        var job = JobQueue.WithPeople(new TranscriptionJob("b", recording, 0, DateTimeOffset.Now), 5);
+        Assert.Equal(0, job.ExpectedSpeakers);
+    }
+
+    [Fact]
+    public async Task Renaming_before_the_note_is_saved_names_the_note_and_keeps_the_audio_where_it_is()
+    {
+        _runner.Settings.Speakers.ReviewNames = false;
+        _runner.Block = true;
+        using var queue = NewQueue();
+        var recording = RecordCall("c");
+        var job = queue.Enqueue(recording, 0);
+        await WaitFor(queue, job.Id, j => j.State == JobState.Transcribing);
+
+        Assert.True(queue.Rename(job.Id, "  Budget\nreview "));
+        Assert.Equal("Budget review", queue.Find(job.Id)!.Title);
+        // Saved to job.json straight away, so a restart keeps the new name.
+        Assert.Equal("Budget review", new JobStore(_root).LoadAll().Single().Recording.Title);
+
+        _runner.Block = false;
+        var saved = await WaitFor(queue, job.Id, j => j.State == JobState.Saved);
+        Assert.Equal("note Budget review", saved.NoteDescription);
+        Assert.Equal("Budget review", saved.Title);
+        Assert.Equal(recording.Directory, saved.Recording.Directory);
+
+        Assert.False(queue.Rename(job.Id, "Too late"));
+        Assert.Equal("Budget review", queue.Find(job.Id)!.Title);
+    }
+
+    [Fact]
+    public async Task A_job_waiting_for_names_can_still_be_renamed()
+    {
+        using var queue = NewQueue();
+        var job = queue.Enqueue(Record("d"), 0);
+        await WaitFor(queue, job.Id, j => j.State == JobState.NeedsNames);
+
+        Assert.True(queue.Rename(job.Id, "Standup"));
+        await queue.SubmitNamesAsync(job.Id, new Dictionary<string, string>());
+        Assert.Equal("note Standup", queue.Find(job.Id)!.NoteDescription);
+    }
+
     [Fact]
     public void Separating_voices_turns_it_on_for_a_recording_made_without()
     {

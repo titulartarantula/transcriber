@@ -8,7 +8,11 @@ public enum JobState { Queued, Transcribing, NeedsNames, Saving, Saved, Failed, 
 
 /// <summary>One recording on its way to a note. Saved as job.json in the recording's own folder.</summary>
 /// <param name="Id">The recording folder's name.</param>
-/// <param name="ExpectedSpeakers">Voices per diarized source chosen when it was recorded, or 0 to estimate.</param>
+/// <param name="ExpectedSpeakers">
+/// Voices per diarized source, exactly as sent to the server, or 0 to estimate. This is the count after
+/// <see cref="Pipeline.SpeakerCount"/> has taken the known speakers off the total, never the total itself,
+/// so jobs saved before the total was asked for mean the same thing and are never adjusted twice.
+/// </param>
 public sealed record TranscriptionJob(string Id, SessionRecording Recording, int ExpectedSpeakers, DateTimeOffset CreatedAt)
 {
     public JobState State { get; init; } = JobState.Queued;
@@ -45,6 +49,13 @@ public sealed record TranscriptionJob(string Id, SessionRecording Recording, int
 
     [JsonIgnore]
     public bool CanRetry => State is JobState.Failed or JobState.Cancelled;
+
+    /// <summary>
+    /// The title only goes into the note, which is written last, so it can change until saving starts.
+    /// A saved note keeps the name it was saved under.
+    /// </summary>
+    [JsonIgnore]
+    public bool CanRename => State is not (JobState.Saving or JobState.Saved);
 
     [JsonIgnore]
     public bool CanReprocess => State == JobState.Saved && AudioKept;

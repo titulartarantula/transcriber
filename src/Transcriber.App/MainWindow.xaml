@@ -47,7 +47,10 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <ui:TextBox x:Name="TitleBox" PlaceholderText="Title for this recording (optional)"
-                            Icon="{ui:SymbolIcon TextT24}" />
+                            Icon="{ui:SymbolIcon TextT24}"
+                            AutomationProperties.Name="Title for this recording"
+                            AutomationProperties.HelpText="Optional. Used when you stop recording. Rename it in the transcript list until the note is saved."
+                            ToolTip="Used when you stop recording. Until the note is saved you can still change it with Rename in the transcript list." />
                 <ui:Button Grid.Column="1" Margin="8,0,0,0" Height="36" Icon="{ui:SymbolIcon Settings24}"
                            Content="Settings" Click="OnSettings" />
             </Grid>
@@ -105,9 +108,11 @@
 
             <!-- Voices -->
             <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="2,10,0,0">
-                <TextBlock Text="Voices per split source" VerticalAlignment="Center" Margin="0,0,10,0" />
+                <TextBlock x:Name="VoicesLabel" Text="People on the call (including you)" VerticalAlignment="Center"
+                           Margin="0,0,10,0" />
                 <ComboBox x:Name="VoicesBox" Width="110" SelectionChanged="OnVoicesChanged"
-                          ToolTip="If you know how many people are on the call, saying so gives the most reliable speaker separation." />
+                          AutomationProperties.LabeledBy="{Binding ElementName=VoicesLabel}"
+                          ToolTip="Everyone on the call, counting you. Each source that isn't split (your mic) is one person, so the rest are separated on the split source." />
                 <TextBlock Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="12,0,0,0"
                            Text="Set it if you know it; Auto estimates." />
             </StackPanel>
@@ -186,6 +191,10 @@
                                                        Visibility="{Binding CanName, Converter={StaticResource Visible}}" />
                                             <ui:Button Content="Open note" Margin="0,0,8,0" Click="OnOpenNote"
                                                        Visibility="{Binding CanOpen, Converter={StaticResource Visible}}" />
+                                            <ui:Button Content="Rename" Margin="0,0,8,0" Click="OnRenameJob"
+                                                       AutomationProperties.Name="{Binding Title, StringFormat='Rename {0}'}"
+                                                       ToolTip="Change the title. The note is named after it when it's saved."
+                                                       Visibility="{Binding CanRename, Converter={StaticResource Visible}}" />
                                             <ui:Button Content="Retry" Margin="0,0,8,0" Click="OnRetryJob"
                                                        Visibility="{Binding CanRetry, Converter={StaticResource Visible}}" />
                                             <ui:Button Content="Reprocess" Margin="0,0,8,0" Click="OnReprocessJob"

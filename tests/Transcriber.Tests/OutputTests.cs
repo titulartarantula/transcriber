@@ -59,8 +59,20 @@ public class OutputTests
     [InlineData("{date} {time} {title}", "Team: Q3/Q4 #plan", "2026-09-25 1403 Team Q3 Q4 plan.md")]
     [InlineData("{title}", "", "Transcript.md")]
     [InlineData("Meetings {date}", "x", "Meetings 2026-09-25.md")]
+    [InlineData("{title}", "CON", "CON_.md")]
+    [InlineData("{title}", "nul.notes", "nul_.notes.md")]
+    [InlineData("{title}", "Console", "Console.md")]
+    [InlineData("{title}", "Plan...  ", "Plan.md")]
+    [InlineData("{title}", "???", "Transcript.md")]
     public void Builds_safe_file_names(string template, string title, string expected) =>
         Assert.Equal(expected, FileNames.Build(template, title, Start));
+
+    [Theory]
+    [InlineData("  Weekly\r\n sync\t ", "Weekly sync")]
+    [InlineData("   ", "")]
+    [InlineData(null, "")]
+    public void Cleans_typed_titles(string? typed, string expected) =>
+        Assert.Equal(expected, FileNames.CleanTitle(typed));
 
     [Fact]
     public async Task Unique_name_appends_counter()

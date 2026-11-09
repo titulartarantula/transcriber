@@ -19,8 +19,25 @@ public static partial class FileNames
         // Windows-invalid characters plus the ones Obsidian refuses in note names (#^[]|).
         name = InvalidRegex().Replace(name, " ");
         name = SpaceRegex().Replace(name, " ").Trim().TrimEnd('.');
-        if (name.Length > 120) name = name[..120].TrimEnd();
-        return (name.Length == 0 ? "Transcript" : name) + ".md";
+        if (name.Length > 120) name = name[..120].TrimEnd().TrimEnd('.');
+        if (name.Length == 0) name = "Transcript";
+
+        // CON, NUL, COM1… can't be file names on Windows, with any extension after them.
+        var dot = name.IndexOf('.');
+        var stem = (dot < 0 ? name : name[..dot]).TrimEnd();
+        if (ReservedRegex().IsMatch(stem)) name = stem + "_" + (dot < 0 ? "" : name[dot..]);
+        return name + ".md";
+    }
+
+    /// <summary>
+    /// A title as typed, made fit to store and show: line breaks and other control characters become spaces,
+    /// runs of spaces collapse, and it's trimmed. File names are made safe separately, by <see cref="Build"/>.
+    /// </summary>
+    public static string CleanTitle(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title)) return "";
+        var clean = SpaceRegex().Replace(ControlRegex().Replace(title, " "), " ").Trim();
+        return clean.Length > 200 ? clean[..200].TrimEnd() : clean;
     }
 
     /// <summary>"name.md" → "name (2).md", "name (3).md", … until <paramref name="exists"/> says it is free.</summary>
@@ -41,4 +58,10 @@ public static partial class FileNames
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex SpaceRegex();
+
+    [GeneratedRegex(@"[\x00-\x1F\x7F]")]
+    private static partial Regex ControlRegex();
+
+    [GeneratedRegex(@"^(CON|PRN|AUX|NUL|COM[0-9¹²³]|LPT[0-9¹²³])$", RegexOptions.IgnoreCase)]
+    private static partial Regex ReservedRegex();
 }

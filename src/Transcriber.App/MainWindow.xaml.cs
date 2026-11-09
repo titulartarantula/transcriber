@@ -37,7 +37,7 @@ public partial class MainWindow : FluentWindow
         SourcesList.ItemsSource = _sources;
         JobsList.ItemsSource = _jobs;
 
-        VoicesBox.ItemsSource = new[] { "Auto", "2", "3", "4", "5", "6", "8" };
+        VoicesBox.ItemsSource = new[] { "Auto", "2", "3", "4", "5", "6", "7", "8" };
         VoicesBox.SelectedItem = _settings.Speakers.ExpectedSpeakers > 0
             ? _settings.Speakers.ExpectedSpeakers.ToString()
             : "Auto";
@@ -187,7 +187,8 @@ public partial class MainWindow : FluentWindow
             .ToList();
         try
         {
-            _session = RecordingSession.Start(TitleBox.Text.Trim(), selections);
+            // The title is read again on Stop, so it can be typed or changed while recording.
+            _session = RecordingSession.Start(FileNames.CleanTitle(TitleBox.Text), selections);
         }
         catch (Exception ex)
         {
@@ -208,9 +209,10 @@ public partial class MainWindow : FluentWindow
         var recording = await session.StopAsync();
         RecordButton.IsEnabled = true;
         SetMode(Mode.Idle);
+        recording = recording with { Title = FileNames.CleanTitle(TitleBox.Text) };
         TitleBox.Text = "";
 
-        _queue.Enqueue(recording, _settings.Speakers.ExpectedSpeakers);
+        Enqueue(recording);
         var dropped = session.Failures.Select(f => $"{f.Device} stopped early: {f.Error.Message}").ToList();
         if (dropped.Count > 0)
             ShowStatus(Tone.Warning, "Recording saved, but not every source made it to the end.", string.Join("\n", dropped));
@@ -240,11 +242,15 @@ public partial class MainWindow : FluentWindow
 
         if (!string.IsNullOrWhiteSpace(TitleBox.Text))
         {
-            recording = recording with { Title = TitleBox.Text.Trim() };
+            recording = recording with { Title = FileNames.CleanTitle(TitleBox.Text) };
             TitleBox.Text = "";
         }
-        _queue.Enqueue(recording, _settings.Speakers.ExpectedSpeakers);
+        Enqueue(recording);
     }
+
+    /// <summary>The box asks for everyone on the call; the server is told how many to find on the split source.</summary>
+    private void Enqueue(SessionRecording recording) =>
+        _queue.Enqueue(recording, SpeakerCount.PerDiarizedSource(_settings.Speakers.ExpectedSpeakers, recording.Sources));
 
     // ----- Transcripts ---------------------------------------------------------------------
 
@@ -300,7 +306,17 @@ public partial class MainWindow : FluentWindow
 
     private void OnRetryJob(object sender, RoutedEventArgs e) => _queue.Retry(ItemOf(sender).Id);
 
-    /// <summary>Asks how many voices to separate, with what a new recording would use now ticked.</summary>
+    /// <summary>Asks for a new title; the note is named and headed with it when it's saved.</summary>
+    private void OnRenameJob(object sender, RoutedEventArgs e)
+    {
+        var item = ItemOf(sender);
+        var dialog = new RenameWindow(item.Job.Recording.Title) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+        if (!_queue.Rename(item.Id, dialog.NewTitle))
+            ShowStatus(Tone.Warning, "The note was already being saved, so it kept its old name.");
+    }
+
+    /// <summary>Asks how many people were on the call, with what a new recording would use now ticked.</summary>
     private void OnReprocessJob(object sender, RoutedEventArgs e)
     {
         var id = ItemOf(sender).Id;
@@ -310,15 +326,15 @@ public partial class MainWindow : FluentWindow
             PlacementTarget = (UIElement)sender,
             Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom,
         };
-        menu.Items.Add(new System.Windows.Controls.MenuItem { Header = "Voices to separate", IsEnabled = false });
-        foreach (var n in new[] { 0, 1, 2, 3, 4, 5, 6, 8 })
+        menu.Items.Add(new System.Windows.Controls.MenuItem { Header = "People on the call (including you)", IsEnabled = false });
+        foreach (var n in new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8 })
         {
             var item = new System.Windows.Controls.MenuItem
             {
-                Header = n switch { 0 => "Auto", 1 => "1 – don't separate", _ => $"{n} voices" },
+                Header = n switch { 0 => "Auto", 1 => "1 – don't separate", _ => $"{n} people" },
                 IsChecked = n == current,
             };
-            item.Click += (_, _) => _queue.Reprocess(id, n);
+            item.Click += (_, _) => _queue.ReprocessForPeople(id, n);
             menu.Items.Add(item);
         }
         menu.IsOpen = true;
