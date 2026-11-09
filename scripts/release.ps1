@@ -279,7 +279,8 @@ try {
         Set-Version $new
         Update-Changelog $section $new $entries
         Invoke-Checked 'git' @('add', 'Versions.props', 'CHANGELOG.md')
-        Invoke-Checked 'git' @('commit', '--quiet', '-m', "Release $title")
+        # Jordan credits Claude as co-author on every commit, release commits included.
+        Invoke-Checked 'git' @('commit', '--quiet', '-m', "Release $title", '-m', 'Co-Authored-By: Claude <noreply@anthropic.com>')
         $committed = $true
     }
 
