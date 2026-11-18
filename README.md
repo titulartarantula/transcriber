@@ -1,10 +1,26 @@
 # Transcriber
 
-A small Windows 11 app that records one or more audio sources at once, transcribes them with your own
-Whisper server, separates and names the speakers, and saves a Markdown note to a folder or straight into
-your Obsidian vault.
+A Windows 11 and Android app that records audio, transcribes it with your own Whisper server, separates
+and names the speakers, and saves a Markdown note to a folder or straight into your Obsidian vault.
 
-## What it does
+- **Windows:** records one or more sources at once (mics plus system audio, so it captures both sides of a
+  Teams or Zoom call).
+- **Android:** records in-person conversations with the phone's mic or a headset, in the background with
+  the screen off. See [Android app](#android-app).
+
+Both apps share the same core: Whisper client, speaker separation, transcript queue, naming and outputs.
+
+## Download
+
+| Platform | Get it |
+| --- | --- |
+| Windows 11 | `Transcriber.exe` from the latest [`windows-v*` release](https://github.com/titulartarantula/transcriber/releases). Self-contained, no install needed. |
+| Android 10+ | The APK from the latest [`android-v*` release](https://github.com/titulartarantula/transcriber/releases). Google Play internal testing is invite-only; see [docs/play](docs/play/play-console.md). |
+
+Play installs and GitHub APKs are signed with different keys, so one can't update the other. Switching
+between them means uninstalling first.
+
+## What it does (Windows)
 
 - **Records several sources together.** Pick any mix of microphones and outputs. An output is captured
   through WASAPI loopback, so "Speakers" records everything playing on it: Teams, Zoom, a browser tab.
@@ -42,9 +58,9 @@ your Obsidian vault.
   you have then.
 - **Transcribe a file…** runs an existing recording through the same pipeline.
 
-## Setup
+## Setup (Windows)
 
-1. Run `publish\Transcriber.exe`. It is self-contained, so .NET doesn't need to be installed.
+1. Run `Transcriber.exe`. It is self-contained, so .NET doesn't need to be installed.
 2. **Settings → Speech to text:** enter your server URL, for example `http://192.168.1.100:8000`, and
    click **Test and load models**.
 3. **Settings → Output:**
@@ -94,8 +110,8 @@ On-device diarization tends to find too many speakers in long or noisy recording
 run pyannote's community-1 pipeline instead. Its VBx clustering is more accurate, and it's much faster
 than a laptop or phone CPU.
 
-The [whisper-server](../whisper-server) project packages faster-whisper-server with a
-`/v1/audio/diarization` endpoint in the same container. The app checks for the endpoint on each
+The companion [whisper-server](https://github.com/titulartarantula/whisper-server) project packages faster-whisper-server with a
+`/v1/audio/diarization` endpoint in the same container. Both apps check for the endpoint on each
 recording and uses it when **Separate voices on the server when it supports it** is on (the default).
 If the server doesn't offer it, or it fails, voices are separated on the device as before, with a warning
 in the second case. **Test and load models** in Settings says which one you'll get. Each transcript shows
@@ -188,9 +204,9 @@ Without both, future APKs can't update the installed app. The only fix then is t
 its settings. On a new PC, copy the keystore into that folder and run
 `./scripts/new-signing-key.ps1 -ImportPassword` to save the password there.
 
-## Building
+## Building (Windows)
 
-Requires the .NET 8 SDK.
+Requires the .NET 8 SDK. The Android build is under [Android app](#android-app).
 
 ```powershell
 dotnet test                                   # unit tests
